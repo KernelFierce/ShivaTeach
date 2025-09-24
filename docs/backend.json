@@ -1,0 +1,681 @@
+{
+  "entities": {
+    "Tenant": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tenant",
+      "type": "object",
+      "description": "Represents a tutoring organization or tenant within the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the tenant."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the tenant."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the tenant."
+        },
+        "billingPolicy": {
+          "type": "string",
+          "description": "Billing policy for the tenant."
+        },
+        "defaultHourlyRate": {
+          "type": "number",
+          "description": "Default hourly rate for the tenant."
+        },
+        "branding": {
+          "type": "string",
+          "description": "Branding information for the tenant (e.g., logo URL, color scheme)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the tenant (e.g., active, suspended, inactive)."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user account within the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N User)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the user."
+        },
+        "role": {
+          "type": "string",
+          "description": "Role of the user (e.g., Admin, Teacher, Student, Parent)."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the user (e.g., active, inactive)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "firstName",
+        "lastName",
+        "email",
+        "role"
+      ]
+    },
+    "Course": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Course",
+      "type": "object",
+      "description": "Represents a course offered by a tenant.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the course."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Course)"
+        },
+        "subjectId": {
+          "type": "string",
+          "description": "Reference to Subject. (Relationship: Subject 1:N Course)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the course."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the course."
+        },
+        "hourlyRate": {
+          "type": "number",
+          "description": "Hourly rate for the course."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "subjectId",
+        "name"
+      ]
+    },
+    "Subject": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Subject",
+      "type": "object",
+      "description": "Represents a subject area (e.g., Math, Science, English).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the subject."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Subject)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the subject."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the subject."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "name"
+      ]
+    },
+    "Session": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Session",
+      "type": "object",
+      "description": "Represents a tutoring session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the session."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Session)"
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to Course. (Relationship: Course 1:N Session)"
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "Reference to User (Teacher). (Relationship: User 1:N Session)"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to User (Student). (Relationship: User 1:N Session)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start time of the session.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End time of the session.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the session (e.g., scheduled, completed, cancelled)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Notes about the session."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "courseId",
+        "teacherId",
+        "studentId",
+        "startTime",
+        "endTime",
+        "status"
+      ]
+    },
+    "Invoice": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Invoice",
+      "type": "object",
+      "description": "Represents an invoice for tutoring services.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the invoice."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Invoice)"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to User (Student). (Relationship: User 1:N Invoice)"
+        },
+        "issueDate": {
+          "type": "string",
+          "description": "Date the invoice was issued.",
+          "format": "date-time"
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Date the invoice is due.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Total amount of the invoice."
+        },
+        "paidAmount": {
+          "type": "number",
+          "description": "Amount paid towards the invoice."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the invoice (e.g., pending, paid, overdue)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "studentId",
+        "issueDate",
+        "dueDate",
+        "amount",
+        "status"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made towards an invoice.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Payment)"
+        },
+        "invoiceId": {
+          "type": "string",
+          "description": "Reference to Invoice. (Relationship: Invoice 1:N Payment)"
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "Date the payment was made.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Amount of the payment."
+        },
+        "method": {
+          "type": "string",
+          "description": "Payment method (e.g., credit card, cash, check)."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "invoiceId",
+        "paymentDate",
+        "amount",
+        "method"
+      ]
+    },
+    "Availability": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Availability",
+      "type": "object",
+      "description": "Represents a teacher's availability for tutoring sessions.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the availability slot."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Availability)"
+        },
+        "teacherId": {
+          "type": "string",
+          "description": "Reference to User (Teacher). (Relationship: User 1:N Availability)"
+        },
+        "dayOfWeek": {
+          "type": "number",
+          "description": "Day of the week (0-6, Sunday-Saturday)."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Start time of the availability slot (e.g., 09:00)."
+        },
+        "endTime": {
+          "type": "string",
+          "description": "End time of the availability slot (e.g., 17:00)."
+        },
+        "overrideDate": {
+          "type": "string",
+          "description": "Optional date for a one-off availability override.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "teacherId",
+        "dayOfWeek",
+        "startTime",
+        "endTime"
+      ]
+    },
+    "Assignment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Assignment",
+      "type": "object",
+      "description": "Represents an assignment given to a student.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the assignment."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Assignment)"
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to Course. (Relationship: Course 1:N Assignment)"
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to User (Student). (Relationship: User 1:N Assignment)"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title of the assignment."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the assignment."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Due date of the assignment.",
+          "format": "date-time"
+        },
+        "grade": {
+          "type": "number",
+          "description": "Grade received on the assignment."
+        },
+        "submissionFileUrl": {
+          "type": "string",
+          "description": "URL of the student's submission file."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "courseId",
+        "studentId",
+        "title",
+        "dueDate"
+      ]
+    },
+    "Lead": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Lead",
+      "type": "object",
+      "description": "Represents a lead or prospect student.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the lead."
+        },
+        "tenantId": {
+          "type": "string",
+          "description": "Reference to Tenant. (Relationship: Tenant 1:N Lead)"
+        },
+        "firstName": {
+          "type": "string",
+          "description": "First name of the lead."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "Last name of the lead."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the lead.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number of the lead."
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the lead (e.g., new, contacted, converted)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Notes about the lead."
+        }
+      },
+      "required": [
+        "id",
+        "tenantId",
+        "firstName",
+        "lastName",
+        "email"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/tenants/{tenantId}",
+        "definition": {
+          "entityName": "Tenant",
+          "schema": {
+            "$ref": "#/backend/entities/Tenant"
+          },
+          "description": "Stores tenant information.  The tenantId is used to segregate tenant-specific data.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user information.  This path ensures only the user can access their data directly.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user information within a tenant. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "userId",
+              "description": "Unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/courses/{courseId}",
+        "definition": {
+          "entityName": "Course",
+          "schema": {
+            "$ref": "#/backend/entities/Course"
+          },
+          "description": "Stores course information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "courseId",
+              "description": "Unique identifier for the course."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/subjects/{subjectId}",
+        "definition": {
+          "entityName": "Subject",
+          "schema": {
+            "$ref": "#/backend/entities/Subject"
+          },
+          "description": "Stores subject information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "subjectId",
+              "description": "Unique identifier for the subject."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/sessions/{sessionId}",
+        "definition": {
+          "entityName": "Session",
+          "schema": {
+            "$ref": "#/backend/entities/Session"
+          },
+          "description": "Stores session information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "sessionId",
+              "description": "Unique identifier for the session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/invoices/{invoiceId}",
+        "definition": {
+          "entityName": "Invoice",
+          "schema": {
+            "$ref": "#/backend/entities/Invoice"
+          },
+          "description": "Stores invoice information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "invoiceId",
+              "description": "Unique identifier for the invoice."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment information for a specific invoice. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "invoiceId",
+              "description": "Unique identifier for the invoice."
+            },
+            {
+              "name": "paymentId",
+              "description": "Unique identifier for the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/availabilities/{availabilityId}",
+        "definition": {
+          "entityName": "Availability",
+          "schema": {
+            "$ref": "#/backend/entities/Availability"
+          },
+          "description": "Stores teacher availability. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "availabilityId",
+              "description": "Unique identifier for the availability slot."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/assignments/{assignmentId}",
+        "definition": {
+          "entityName": "Assignment",
+          "schema": {
+            "$ref": "#/backend/entities/Assignment"
+          },
+          "description": "Stores assignment information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "assignmentId",
+              "description": "Unique identifier for the assignment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tenants/{tenantId}/leads/{leadId}",
+        "definition": {
+          "entityName": "Lead",
+          "schema": {
+            "$ref": "#/backend/entities/Lead"
+          },
+          "description": "Stores lead information. Includes denormalized 'tenantId' for authorization independence.",
+          "params": [
+            {
+              "name": "tenantId",
+              "description": "Unique identifier for the tenant."
+            },
+            {
+              "name": "leadId",
+              "description": "Unique identifier for the lead."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure Authorization Independence, clarity, and scalability, adhering to the principles of DBAC (Database-Based Access Control) and QAPs (Rules are not Filters).  Authorization Independence is achieved through denormalization.  For instance, each document within a subcollection related to a tenant (e.g., users, courses) will include the `tenantId` field, eliminating the need for security rules to perform costly `get()` operations to verify tenant membership.  The structure also facilitates secure `list` operations.  Private user data is stored under `/users/{userId}`, enabling straightforward ownership-based security rules.  Tenant-owned data is segregated by using the `tenants/{tenantId}` path as a prefix, and relevant properties (like tenantId) are denormalized into subcollections to avoid `get()` calls in rules. Collaborative data, such as determining roles, will rely on the existence of documents in dedicated collections (e.g., `/roles_admin/{uid}`)."
+  }
+}
