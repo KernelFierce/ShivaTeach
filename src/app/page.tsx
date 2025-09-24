@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,10 +17,12 @@ import { Logo } from '@/components/logo';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { setDocumentNonBlocking } from '@/lib/firebase-importer';
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const auth = useAuth();
+  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
@@ -40,26 +43,31 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // User signed in successfully. The useEffect will handle redirection.
     } catch (error: any) {
-      // This error code can mean user not found OR wrong password.
       if (error.code === 'auth/invalid-credential') {
-        // We'll try to create a new account.
         try {
-          await createUserWithEmailAndPassword(auth, email, password);
-          // New user created and signed in. The useEffect will handle redirection.
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const newUser = userCredential.user;
+          
+          const userDocRef = doc(firestore, "users", newUser.uid);
+          
+          setDocumentNonBlocking(userDocRef, {
+            email: newUser.email,
+            displayName: newUser.email?.split('@')[0] || 'New User',
+            role: 'OrganizationAdmin', // Assign a default role
+            createdAt: new Date(),
+          }, {});
+
           toast({
             title: "Account Created",
             description: "We've created a new account for you and logged you in.",
           });
         } catch (signUpError: any) {
-          // This catches errors during the sign-UP attempt.
           console.error("Sign-up Error:", signUpError);
           let description = "Could not create a new account.";
           if (signUpError.code === 'auth/weak-password') {
             description = 'The password is too weak. Please use at least 6 characters.';
           } else if (signUpError.code === 'auth/email-already-in-use') {
-            // This case happens if the email exists but the original password was wrong.
             description = 'The email or password you entered is incorrect.';
           } else if (signUpError.message) {
             description = signUpError.message;
@@ -71,7 +79,6 @@ export default function LoginPage() {
           });
         }
       } else {
-        // Handle other login errors that are not 'auth/invalid-credential'
         console.error("Login Error:", error);
         toast({
           variant: "destructive",

@@ -20,7 +20,7 @@ import { MoreHorizontal, PlusCircle } from "lucide-react"
 import { users } from "@/lib/mock-data"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu"
 
-export default function UsersPage() {
+export default function StudentsPage() {
   const getBadgeVariant = (status: string) => {
     switch (status) {
       case 'Active':
@@ -39,13 +39,13 @@ export default function UsersPage() {
       <CardHeader>
         <div className="flex items-center justify-between">
             <div>
-                <CardTitle className="font-headline">User Management</CardTitle>
+                <CardTitle className="font-headline">Student Management</CardTitle>
                 <CardDescription>
-                View, add, and manage all users in your organization.
+                View, add, and manage all students in your organization.
                 </CardDescription>
             </div>
             <Button>
-                <PlusCircle className="mr-2 h-4 w-4" /> Add User
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Student
             </Button>
         </div>
       </CardHeader>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import Link from "next/link"
@@ -41,7 +42,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images"
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/dashboard/users", icon: Users, label: "User Management" },
+  { href: "/dashboard/students", icon: Users, label: "Students" },
   { href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
   { href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
   { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
