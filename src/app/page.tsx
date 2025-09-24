@@ -53,19 +53,31 @@ export default function LoginPage() {
           });
         } catch (signUpError: any) {
           console.error("Sign-up Error:", signUpError);
+          let description = "Could not create a new account.";
+          if (signUpError.code === 'auth/weak-password') {
+            description = 'The password is too weak. Please use at least 6 characters.';
+          } else if (signUpError.message) {
+            description = signUpError.message;
+          }
           toast({
             variant: "destructive",
             title: "Sign-Up Failed",
-            description: signUpError.message || "Could not create a new account.",
+            description: description,
           });
         }
       } else {
-        // Handle other login errors (e.g., wrong password)
+        // Handle other login errors (e.g., wrong password, invalid credential)
         console.error("Login Error:", error);
+        let description = "An unknown error occurred during login.";
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            description = "The email or password you entered is incorrect.";
+        } else if (error.message) {
+            description = error.message;
+        }
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: error.message || "An unknown error occurred.",
+          description: description,
         });
       }
     } finally {
