@@ -43,6 +43,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isUserLoading && user) {
       const fetchUserRoleAndRedirect = async () => {
+        if (!firestore || !user) return;
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
@@ -80,7 +81,7 @@ export default function LoginPage() {
             displayName: userDisplayName,
             role: 'OrganizationAdmin', // Assign a default role
             activeTenantId: 'acme-tutoring',
-          }, {});
+          }, { merge: true });
 
           // Create the public user record within the tenant
           setDocumentNonBlocking(tenantUserRef, {
@@ -89,7 +90,7 @@ export default function LoginPage() {
             role: 'OrganizationAdmin',
             status: 'Active',
             joined: format(new Date(), 'yyyy-MM-dd'),
-          }, {});
+          }, { merge: true });
 
           toast({
             title: "Account Created",
@@ -226,5 +227,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
