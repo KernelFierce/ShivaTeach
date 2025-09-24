@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,16 @@ import { Logo } from '@/components/logo';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { setDocumentNonBlocking } from '@/lib/firebase-importer';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
+const ROLE_DASHBOARD_MAP: { [key: string]: string } = {
+  OrganizationAdmin: '/dashboard',
+  Admin: '/dashboard',
+  Teacher: '/dashboard/teacher',
+  Student: '/dashboard/student',
+  Parent: '/dashboard/parent',
+  SuperAdmin: '/dashboard/superadmin',
+};
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
@@ -33,9 +42,21 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!isUserLoading && user) {
-      router.replace('/dashboard');
+      const fetchUserRoleAndRedirect = async () => {
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          const userRole = userDoc.data()?.role;
+          const dashboardPath = ROLE_DASHBOARD_MAP[userRole] || '/dashboard';
+          router.replace(dashboardPath);
+        } else {
+          // Fallback if profile doesn't exist for some reason
+          router.replace('/dashboard');
+        }
+      };
+      fetchUserRoleAndRedirect();
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, firestore]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
