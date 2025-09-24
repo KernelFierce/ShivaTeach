@@ -5,11 +5,11 @@ export default function SchedulePage() {
     <Card>
       <CardHeader>
         <CardTitle className="font-headline">Master Schedule</CardTitle>
-        <CardDescription>View, schedule, and log all tutoring sessions.</CardDescription>
+        <CardDescription>The command center for viewing, scheduling, and logging all tutoring sessions for the organization.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="flex items-center justify-center h-96 border-2 border-dashed rounded-lg">
-          <p className="text-muted-foreground">Schedule component coming soon...</p>
+          <p className="text-muted-foreground">Master schedule component coming soon...</p>
         </div>
       </CardContent>
     </Card>
