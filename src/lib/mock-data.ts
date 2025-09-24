@@ -4,11 +4,30 @@ export const user = {
   role: 'Organization Admin',
 };
 
+export const teacher = {
+  name: 'David Chen',
+  email: 'david.c@example.com',
+  role: 'Teacher',
+};
+
 export const upcomingSessions = [
   { id: 1, student: 'Alex Johnson', subject: 'Algebra II', time: '10:00 AM', teacher: 'David Chen' },
   { id: 2, student: 'Sarah Lee', subject: 'AP Physics', time: '11:30 AM', teacher: 'Maria Garcia' },
   { id: 3, student: 'Tom Wilson', subject: 'SAT Prep', time: '2:00 PM', teacher: 'David Chen' },
 ];
+
+export const teacherUpcomingSessions = [
+    { id: 1, student: 'Alex Johnson', subject: 'Algebra II', time: '10:00 AM' },
+    { id: 3, student: 'Tom Wilson', subject: 'SAT Prep', time: '2:00 PM' },
+    { id: 4, student: 'Emily White', subject: 'Chemistry', time: '4:00 PM' },
+]
+
+export const teacherStudents = [
+    { id: 'USR-001', name: 'Alex Johnson', subject: 'Algebra II', lastSession: '2023-10-26' },
+    { id: 'USR-004', name: 'Sarah Lee', subject: 'AP Physics', lastSession: '2023-10-25' },
+    { id: 'USR-005', name: 'Tom Wilson', subject: 'SAT Prep', lastSession: '2023-10-26' },
+    { id: 'USR-008', name: 'Emily White', subject: 'Chemistry', lastSession: '2023-10-24' },
+]
 
 export const studentStats = {
   total: 124,
