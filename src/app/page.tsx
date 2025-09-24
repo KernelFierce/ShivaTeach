@@ -8,9 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { format } from 'date-fns';
 
-import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useAuth, useUser, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,97 +41,92 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isUserLoading && user) {
+    if (!isUserLoading && user && firestore) {
       const fetchUserRoleAndRedirect = async () => {
-        if (!firestore || !user) return;
         const userDocRef = doc(firestore, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userRole = userDoc.data()?.role;
-          const dashboardPath = ROLE_DASHBOARD_MAP[userRole] || '/dashboard';
-          router.replace(dashboardPath);
-        } else {
-          // Fallback if profile doesn't exist for some reason
-          router.replace('/dashboard');
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userRole = userDoc.data()?.role;
+            const dashboardPath = ROLE_DASHBOARD_MAP[userRole] || '/dashboard';
+            router.replace(dashboardPath);
+          } else {
+             // If the user profile doesn't exist, they can't log in.
+             // This can happen if signup fails midway. We log them out.
+            toast({
+              variant: "destructive",
+              title: "Profile Incomplete",
+              description: "Your user profile was not found. Please contact support or try signing up again.",
+            });
+            auth.signOut();
+          }
+        } catch (error) {
+            console.error("Error fetching user profile:", error);
+            // Fallback if firestore is unavailable
+            router.replace('/dashboard');
         }
       };
       fetchUserRoleAndRedirect();
     }
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router, firestore, auth, toast]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) return;
     setIsLoading(true);
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Successful login is handled by the useEffect hook
+      // On successful login, the useEffect will handle the redirection.
+      toast({
+        title: "Login Successful",
+        description: "Redirecting to your dashboard...",
+      });
     } catch (error: any) {
-      if (error.code === 'auth/invalid-credential') {
-        // This error code can mean user not found or wrong password.
-        // We'll attempt to create an account as a fallback.
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const newUser = userCredential.user;
-          
-          const userProfileRef = doc(firestore, "users", newUser.uid);
-          const tenantUserRef = doc(firestore, "tenants", "acme-tutoring", "users", newUser.uid);
-          const userDisplayName = newUser.email?.split('@')[0] || 'New User';
-          
-          // 1. Create the private user profile
-          setDocumentNonBlocking(userProfileRef, {
-            email: newUser.email,
-            displayName: userDisplayName,
-            role: 'OrganizationAdmin', // Assign a default role
-            activeTenantId: 'acme-tutoring',
-          }, { merge: true });
-
-          // 2. Create the public user record within the tenant
-          setDocumentNonBlocking(tenantUserRef, {
-            name: userDisplayName,
-            email: newUser.email,
-            role: 'OrganizationAdmin',
-            status: 'Active',
-            joined: format(new Date(), 'yyyy-MM-dd'),
-          }, { merge: true });
-
-          toast({
-            title: "Account Created",
-            description: "We've created a new account for you and logged you in.",
-          });
-          // New user is now logged in, useEffect will handle redirection.
-
-        } catch (signUpError: any) {
-          // This block catches errors during the sign-UP attempt
-          console.error("Sign-up Error:", signUpError);
-          let description = "Could not create a new account.";
-          if (signUpError.code === 'auth/weak-password') {
-            description = 'The password is too weak. Please use at least 6 characters.';
-          } else if (signUpError.code === 'auth/email-already-in-use') {
-            // This means the user exists but the initial password was wrong.
-            description = 'The email or password you entered is incorrect.';
-          } else if (signUpError.message) {
-            description = signUpError.message;
-          }
-          toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: description,
-          });
-        }
-      } else {
-        // This block catches other login errors (network, etc.)
-        console.error("Login Error:", error);
-        toast({
-          variant: "destructive",
-          title: "Login Failed",
-          description: error.message || "An unknown error occurred during login.",
-        });
-      }
+       toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: "The email or password you entered is incorrect.",
+      });
     } finally {
       setIsLoading(false);
     }
   };
+  
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+    setIsLoading(true);
+    
+    try {
+        await createUserWithEmailAndPassword(auth, email, password);
+        // On successful sign-up, the useEffect will redirect.
+        // We no longer create documents here. That's handled by seeding.
+        toast({
+            title: "Account Created",
+            description: "Please ask your Organization Administrator to create your user profile before you can log in.",
+        });
+        // Log the user out immediately so they can't access a broken state.
+        await auth.signOut();
+
+    } catch (error: any) {
+        let description = "An unknown error occurred during sign-up.";
+        if (error.code === 'auth/weak-password') {
+            description = 'The password is too weak. Please use at least 6 characters.';
+        } else if (error.code === 'auth/email-already-in-use') {
+            description = 'This email is already in use. Please try logging in instead.';
+        }
+        toast({
+            variant: "destructive",
+            title: "Sign-up Failed",
+            description: description,
+        });
+    } finally {
+        setIsLoading(false);
+    }
+  }
+
 
   if (isUserLoading || user) {
     return (
@@ -148,67 +142,68 @@ export default function LoginPage() {
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
             <Logo className="mx-auto text-2xl" />
-            <h1 className="text-3xl font-bold font-headline mt-2">Welcome Back</h1>
+            <h1 className="text-3xl font-bold font-headline mt-2">Welcome</h1>
             <p className="text-balance text-muted-foreground">
-              Enter your email below to login to your account
+              Enter your credentials to access your account.
             </p>
           </div>
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl font-headline">Login</CardTitle>
               <CardDescription>
-                Use any email and password to sign up or log in.
+                Use an administrator-provided account to log in.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleLogin}>
-                <div className="grid gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="m@example.com"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      disabled={isLoading}
-                    />
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="password">Password</Label>
+                    <Link
+                      href="#"
+                      className="ml-auto inline-block text-sm underline"
+                    >
+                      Forgot your password?
+                    </Link>
                   </div>
-                  <div className="grid gap-2">
-                    <div className="flex items-center">
-                      <Label htmlFor="password">Password</Label>
-                      <Link
-                        href="#"
-                        className="ml-auto inline-block text-sm underline"
-                      >
-                        Forgot your password?
-                      </Link>
-                    </div>
-                    <Input 
-                      id="password" 
-                      type="password" 
-                      required 
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Login or Create Account
-                  </Button>
-                  <Button variant="outline" className="w-full" disabled={isLoading}>
-                    Login with SSO
-                  </Button>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Login
+                    </Button>
+                    <Button variant="secondary" className="w-full" onClick={handleSignUp} disabled={isLoading}>
+                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create Auth Account
+                    </Button>
                 </div>
               </form>
             </CardContent>
           </Card>
           <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{' '}
+            Need an account?{' '}
             <Link href="#" className="underline">
-              Contact Sales
+              Contact your administrator
             </Link>
           </div>
         </div>

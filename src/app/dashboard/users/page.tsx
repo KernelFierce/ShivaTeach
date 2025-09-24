@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Loader2, Database } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { seedInitialUserData } from '@/lib/seed';
+import { useToast } from '@/hooks/use-toast';
 
 // Define the type for a user object based on your data structure
 interface User {
@@ -41,20 +43,35 @@ interface User {
 export default function UsersPage() {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
+  const { toast } = useToast();
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // IMPORTANT: We must memoize the collection reference to prevent infinite re-renders.
-  // We assume a simple structure where the current user belongs to one tenant.
-  // In a real multi-tenant app, you'd get the active tenantId from the user's profile.
   const usersCollectionRef = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
-    // This is a simplification. A real app would fetch `activeTenantId` from the user's profile.
-    // For now, we'll assume a static tenantId or derive it if possible.
-    // Let's create a placeholder tenantId for now.
-    const tenantId = 'acme-tutoring'; // Replace with dynamic tenant ID later
+    // For now, we'll use a static tenantId. This will be dynamic later.
+    const tenantId = 'acme-tutoring'; 
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, currentUser]);
 
-  const { data: users, isLoading } = useCollection<User>(usersCollectionRef);
+  const { data: users, isLoading, error } = useCollection<User>(usersCollectionRef);
+
+  const handleSeedData = async () => {
+    if (!firestore) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Firestore is not available.'});
+        return;
+    }
+    setIsSeeding(true);
+    try {
+        await seedInitialUserData(firestore, 'acme-tutoring');
+        toast({ title: 'Success!', description: 'Initial user data has been seeded.' });
+        // The useCollection hook will automatically refresh the data.
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Seeding Failed', description: e.message || 'Could not seed database.' });
+    } finally {
+        setIsSeeding(false);
+    }
+  }
 
   const getBadgeVariant = (status: string) => {
     switch (status) {
@@ -62,8 +79,6 @@ export default function UsersPage() {
         return 'default';
       case 'Inactive':
         return 'secondary';
-      case 'Lead':
-        return 'outline';
       default:
         return 'secondary';
     }
@@ -89,7 +104,12 @@ export default function UsersPage() {
           <div className="flex items-center justify-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        ) : (
+        ) : error ? (
+            <div className="text-center text-destructive py-16">
+              <p>Error loading users:</p>
+              <p className="text-sm">{error.message}</p>
+            </div>
+        ) : users && users.length > 0 ? (
           <Table>
             <TableHeader>
               <TableRow>
@@ -105,7 +125,7 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users && users.map((user) => (
+              {users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     <div className="font-medium">{user.name}</div>
@@ -146,12 +166,17 @@ export default function UsersPage() {
               ))}
             </TableBody>
           </Table>
+        ) : (
+             <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
+                <Database className="mx-auto h-12 w-12" />
+                <h3 className="mt-4 text-lg font-semibold">No Users Found</h3>
+                <p className="mt-2 text-sm">Your organization doesn't have any users yet.</p>
+                <Button onClick={handleSeedData} className="mt-6" disabled={isSeeding}>
+                    {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                    {isSeeding ? 'Seeding...' : 'Seed Initial Data'}
+                </Button>
+             </div>
         )}
-         {users && users.length === 0 && !isLoading && (
-            <div className="text-center text-muted-foreground py-16">
-              No users found in this organization yet.
-            </div>
-         )}
       </CardContent>
     </Card>
   );
