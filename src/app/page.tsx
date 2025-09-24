@@ -42,8 +42,9 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, email, password);
       // User signed in successfully. The useEffect will handle redirection.
     } catch (error: any) {
-      if (error.code === 'auth/user-not-found') {
-        // If user doesn't exist, try to create a new account
+      // This error code can mean user not found OR wrong password.
+      if (error.code === 'auth/invalid-credential') {
+        // We'll try to create a new account.
         try {
           await createUserWithEmailAndPassword(auth, email, password);
           // New user created and signed in. The useEffect will handle redirection.
@@ -52,10 +53,14 @@ export default function LoginPage() {
             description: "We've created a new account for you and logged you in.",
           });
         } catch (signUpError: any) {
+          // This catches errors during the sign-UP attempt.
           console.error("Sign-up Error:", signUpError);
           let description = "Could not create a new account.";
           if (signUpError.code === 'auth/weak-password') {
             description = 'The password is too weak. Please use at least 6 characters.';
+          } else if (signUpError.code === 'auth/email-already-in-use') {
+            // This case happens if the email exists but the original password was wrong.
+            description = 'The email or password you entered is incorrect.';
           } else if (signUpError.message) {
             description = signUpError.message;
           }
@@ -66,18 +71,12 @@ export default function LoginPage() {
           });
         }
       } else {
-        // Handle other login errors (e.g., wrong password, invalid credential)
+        // Handle other login errors that are not 'auth/invalid-credential'
         console.error("Login Error:", error);
-        let description = "An unknown error occurred during login.";
-        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            description = "The email or password you entered is incorrect.";
-        } else if (error.message) {
-            description = error.message;
-        }
         toast({
           variant: "destructive",
           title: "Login Failed",
-          description: description,
+          description: error.message || "An unknown error occurred during login.",
         });
       }
     } finally {
