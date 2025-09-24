@@ -164,3 +164,19 @@ We will build the application iteratively, focusing on one user role at a time. 
 
 ### Post-Sprints: Backend Integration
 - **Objective**: Connect all the UI we've built to the Firebase backend. This will be an ongoing process throughout the sprints, but we'll have a dedicated phase to ensure everything is wired up, secure, and working end-to-end.
+
+## 4. Changelog
+
+### Authentication & Authorization
+- **Firebase Authentication**: Integrated email/password authentication. The login page (`/`) now uses Firebase to authenticate users.
+- **Protected Routes**: The entire `/dashboard` area is now protected. Unauthenticated users are redirected to the login page.
+- **Role-Based Navigation**: The dashboard sidebar is now dynamic. It fetches the logged-in user's role from their Firestore profile (`/users/{uid}`) and displays the navigation links relevant to that role.
+- **Role-Based Redirects**: After logging in, users are automatically redirected to the correct dashboard based on their assigned role (e.g., an `OrganizationAdmin` goes to `/dashboard`, a `Teacher` to `/dashboard/teacher`).
+- **Real User Data**: The sidebar now displays the name and email of the actual logged-in user instead of mock data.
+- **Logout Functionality**: The logout button in the user dropdown menu is now functional.
+
+### Firestore Integration
+- **Multi-Tenant Data Model**: Updated the Firestore data model in `docs/backend.json` to reflect a multi-tenant architecture, with public user profiles stored under `/tenants/{tenantId}/users/{userId}`.
+- **Live Data on User Management Page**: The User Management page (`/dashboard/users`) now fetches and displays live user data from Firestore instead of using mock data.
+- **On-Demand Data Seeding**: Removed complex data creation logic from the user signup process. A "Seed Data" button now appears on the User Management page when no users are found, allowing for the clean, intentional creation of initial data and Firestore collections.
+- **Error Handling**: Implemented a global, non-blocking error handling system for Firestore permission errors to improve debugging.
