@@ -10,6 +10,12 @@ export const teacher = {
   role: 'Teacher',
 };
 
+export const studentUser = {
+  name: 'Alex Johnson',
+  email: 'alex.j@example.com',
+  role: 'Student',
+};
+
 export const upcomingSessions = [
   { id: 1, student: 'Alex Johnson', subject: 'Algebra II', time: '10:00 AM', teacher: 'David Chen' },
   { id: 2, student: 'Sarah Lee', subject: 'AP Physics', time: '11:30 AM', teacher: 'Maria Garcia' },
@@ -28,6 +34,17 @@ export const teacherStudents = [
     { id: 'USR-005', name: 'Tom Wilson', subject: 'SAT Prep', lastSession: '2023-10-26' },
     { id: 'USR-008', name: 'Emily White', subject: 'Chemistry', lastSession: '2023-10-24' },
 ]
+
+export const studentUpcomingSessions = [
+  { id: 1, teacher: 'David Chen', subject: 'Algebra II', time: '10:00 AM', date: '2024-07-29' },
+  { id: 2, teacher: 'Maria Garcia', subject: 'AP Physics', time: '11:30 AM', date: '2024-07-30' },
+];
+
+export const studentAssignments = [
+  { id: 1, subject: 'Algebra II', title: 'Quadratic Equations Worksheet', due: '2024-08-02', status: 'Pending' },
+  { id: 2, subject: 'AP Physics', title: 'Lab Report: Kinematics', due: '2024-08-05', status: 'Pending' },
+  { id: 3, subject: 'Algebra II', title: 'Polynomials Quiz', due: '2024-07-28', status: 'Completed' },
+];
 
 export const studentStats = {
   total: 124,
