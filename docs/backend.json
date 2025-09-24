@@ -1,5 +1,43 @@
 {
   "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a private user profile, containing settings and preferences.",
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "The user's chosen display name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's primary role.",
+          "enum": [
+            "SuperAdmin",
+            "OrganizationAdmin",
+            "Admin",
+            "Teacher",
+            "Student",
+            "Parent"
+          ]
+        },
+        "activeTenantId": {
+          "type": "string",
+          "description": "The ID of the tenant the user is currently interacting with."
+        }
+      },
+      "required": [
+        "displayName",
+        "email",
+        "role"
+      ]
+    },
     "Tenant": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Tenant",
@@ -368,8 +406,7 @@
           "description": "Reference to Course. (Relationship: Course 1:N Assignment)"
         },
         "studentId": {
-          "type": "string",
-          "description": "Reference to User (Student). (Relationship: User 1:N Assignment)"
+          "type": "string",          "description": "Reference to User (Student). (Relationship: User 1:N Assignment)"
         },
         "title": {
           "type": "string",
@@ -460,33 +497,33 @@
   "firestore": {
     "structure": [
       {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores private user-specific data like preferences and roles. This path ensures only the user can access their data directly.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The user's unique ID (from Firebase Auth)."
+            }
+          ]
+        }
+      },
+      {
         "path": "/tenants/{tenantId}",
         "definition": {
           "entityName": "Tenant",
           "schema": {
             "$ref": "#/backend/entities/Tenant"
           },
-          "description": "Stores tenant information.  The tenantId is used to segregate tenant-specific data.",
+          "description": "Stores information about a specific tutoring organization (tenant).",
           "params": [
             {
               "name": "tenantId",
               "description": "Unique identifier for the tenant."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user information.  This path ensures only the user can access their data directly.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "Unique identifier for the user."
             }
           ]
         }
@@ -498,7 +535,7 @@
           "schema": {
             "$ref": "#/backend/entities/User"
           },
-          "description": "Stores user information within a tenant. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores public user information within a specific tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -506,7 +543,7 @@
             },
             {
               "name": "userId",
-              "description": "Unique identifier for the user."
+              "description": "The user's unique ID."
             }
           ]
         }
@@ -518,7 +555,7 @@
           "schema": {
             "$ref": "#/backend/entities/Course"
           },
-          "description": "Stores course information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores course information for a tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -538,7 +575,7 @@
           "schema": {
             "$ref": "#/backend/entities/Subject"
           },
-          "description": "Stores subject information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores subject information for a tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -558,7 +595,7 @@
           "schema": {
             "$ref": "#/backend/entities/Session"
           },
-          "description": "Stores session information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores session information for a tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -578,7 +615,7 @@
           "schema": {
             "$ref": "#/backend/entities/Invoice"
           },
-          "description": "Stores invoice information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores invoice information for a tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -598,7 +635,7 @@
           "schema": {
             "$ref": "#/backend/entities/Payment"
           },
-          "description": "Stores payment information for a specific invoice. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores payment information for a specific invoice.",
           "params": [
             {
               "name": "tenantId",
@@ -622,7 +659,7 @@
           "schema": {
             "$ref": "#/backend/entities/Availability"
           },
-          "description": "Stores teacher availability. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores teacher availability for a tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -642,7 +679,7 @@
           "schema": {
             "$ref": "#/backend/entities/Assignment"
           },
-          "description": "Stores assignment information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores assignment information for a tenant.",
           "params": [
             {
               "name": "tenantId",
@@ -662,7 +699,7 @@
           "schema": {
             "$ref": "#/backend/entities/Lead"
           },
-          "description": "Stores lead information. Includes denormalized 'tenantId' for authorization independence.",
+          "description": "Stores lead information for a tenant.",
           "params": [
             {
               "name": "tenantId",

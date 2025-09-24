@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import Link from "next/link"
@@ -14,10 +15,16 @@ import {
   Settings,
   Users,
   Wallet,
+  Building,
+  GraduationCap,
+  HeartHandshake,
+  BookUser,
+  ShieldCheck,
 } from "lucide-react"
 import { signOut } from "firebase/auth"
+import { doc } from "firebase/firestore"
 
-import { useAuth, useUser } from "@/firebase"
+import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import {
   Sidebar,
   SidebarContent,
@@ -26,6 +33,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  SidebarMenuSkeleton,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -39,31 +47,93 @@ import {
 import { Logo } from "@/components/logo"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 
-const navItems = [
+const adminNavItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/dashboard/students", icon: Users, label: "Students" },
+  { href: "/dashboard/users", icon: Users, label: "Users" },
   { href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
   { href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
   { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
   { href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
 ]
 
+const teacherNavItems = [
+  { href: "/dashboard/teacher", icon: Home, label: "Dashboard" },
+  { href: "/dashboard/teacher/availability", icon: Calendar, label: "Availability" },
+  { href: "/dashboard/teacher/lessons", icon: BookUser, label: "Lessons" },
+];
+
+const studentNavItems = [
+    { href: "/dashboard/student", icon: GraduationCap, label: "Dashboard" },
+];
+
+const parentNavItems = [
+    { href: "/dashboard/parent", icon: HeartHandshake, label: "Parent Portal" },
+];
+
+const superAdminNavItems = [
+    { href: "/dashboard/superadmin", icon: ShieldCheck, label: "Platform" },
+    { href: "/dashboard/superadmin/tenants", icon: Building, label: "Tenants" },
+]
+
 export function DashboardSidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const auth = useAuth()
+  const firestore = useFirestore()
   const { user } = useUser()
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user?.uid]);
+
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
   const handleLogout = async () => {
     await signOut(auth);
     router.push('/');
   }
 
+  const role = userProfile?.role;
+  let navItems = adminNavItems; // Default to admin
+  if (role === 'Teacher') navItems = teacherNavItems;
+  if (role === 'Student') navItems = studentNavItems;
+  if (role === 'Parent') navItems = parentNavItems;
+  if (role === 'SuperAdmin') navItems = superAdminNavItems;
+
+
   const userName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
   const userFallback = userName.charAt(0).toUpperCase();
+
+  const renderNav = () => {
+    if (isProfileLoading) {
+      return (
+        <>
+          <SidebarMenuSkeleton showIcon />
+          <SidebarMenuSkeleton showIcon />
+          <SidebarMenuSkeleton showIcon />
+          <SidebarMenuSkeleton showIcon />
+        </>
+      )
+    }
+
+    return navItems.map((item) => (
+      <SidebarMenuItem key={item.label}>
+        <Link href={item.href} legacyBehavior passHref>
+          <SidebarMenuButton
+            isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
+            icon={<item.icon />}
+            tooltip={item.label}
+          >
+            {item.label}
+          </SidebarMenuButton>
+        </Link>
+      </SidebarMenuItem>
+    ))
+  }
 
   return (
     <Sidebar>
@@ -72,19 +142,7 @@ export function DashboardSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.label}>
-              <Link href={item.href} legacyBehavior passHref>
-                <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
-                  icon={<item.icon />}
-                  tooltip={item.label}
-                >
-                  {item.label}
-                </SidebarMenuButton>
-              </Link>
-            </SidebarMenuItem>
-          ))}
+          {renderNav()}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
