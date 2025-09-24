@@ -1,10 +1,11 @@
+
 "use client"
 
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
 import { useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -39,14 +40,34 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the user state and the useEffect above will redirect.
+      // User signed in successfully. The useEffect will handle redirection.
     } catch (error: any) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Login Failed",
-        description: error.message || "An unknown error occurred.",
-      });
+      if (error.code === 'auth/user-not-found') {
+        // If user doesn't exist, try to create a new account
+        try {
+          await createUserWithEmailAndPassword(auth, email, password);
+          // New user created and signed in. The useEffect will handle redirection.
+          toast({
+            title: "Account Created",
+            description: "We've created a new account for you and logged you in.",
+          });
+        } catch (signUpError: any) {
+          console.error("Sign-up Error:", signUpError);
+          toast({
+            variant: "destructive",
+            title: "Sign-Up Failed",
+            description: signUpError.message || "Could not create a new account.",
+          });
+        }
+      } else {
+        // Handle other login errors (e.g., wrong password)
+        console.error("Login Error:", error);
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: error.message || "An unknown error occurred.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +96,7 @@ export default function LoginPage() {
             <CardHeader>
               <CardTitle className="text-2xl font-headline">Login</CardTitle>
               <CardDescription>
-                Use your organization credentials to sign in.
+                Use any email and password to sign up or log in.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -114,7 +135,7 @@ export default function LoginPage() {
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Login
+                    Login or Create Account
                   </Button>
                   <Button variant="outline" className="w-full" disabled={isLoading}>
                     Login with SSO
