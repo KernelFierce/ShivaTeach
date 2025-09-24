@@ -12,6 +12,7 @@ This initial version focuses on establishing the frontend foundation and user in
 - **UI Components**: ShadCN UI
 - **Styling**: Tailwind CSS
 - **AI**: Genkit
+- **Backend**: Firebase (Authentication, Firestore, Storage)
 
 ### Core UI & Layout
 - **Login Page**: A static, un-authenticated entry page located at `/`.
@@ -39,10 +40,12 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
 *   **Poor User Experience**: Many LMS platforms are clunky and complicated. **Our Solution**: A clean, intuitive, and role-specific UI for every user, ensuring they only see what they need to see to perform their job effectively.
 
 ### Part 2: The Architectural Pillars
-*   **Scalable Multi-Tenancy**: An `organizations` table/collection will be the root. All data will be strictly partitioned, ensuring data security and privacy between different tutoring businesses.
-*   **Unified Identity & Security**: We will leverage a secure authentication provider (like Firebase Auth) for user management, including third-party providers like Google. A central `users` or `people` collection will store profile metadata. All data access will be governed by strict security rules.
-*   **Real-Time Data Flow**: We will use realtime database subscriptions. When an admin updates a class, it will reflect instantly on the teacher's and student's dashboards without a page refresh.
-*   **Integrated File Management**: We will use a secure cloud storage solution (like Firebase Storage) for assignment submissions, integrated with our authentication to ensure secure file access.
+*   **Scalable Multi-Tenancy**: All data will be partitioned by an `organizationId`. A top-level `organizations` collection in Firestore will be the root. This ensures strict data security and privacy between different tutoring businesses.
+*   **Unified Identity & Security**: We will leverage **Firebase Authentication** for secure user management, including third-party providers like Google. A central `users` collection will store profile metadata, associated with an organization. All data access will be governed by strict Firestore Security Rules.
+*   **Real-Time Data Flow**: We will use Firestore's real-time snapshot listeners. When an admin updates a class, it will reflect instantly on the teacher's and student's dashboards without a page refresh.
+*   **Integrated File Management**: We will use **Firebase Storage** for assignment submissions. It integrates seamlessly with Firebase Authentication and its security rules, allowing for secure file access.
+*   **Generative AI**: **Genkit** with Google's Gemini models will power intelligent features, such as smart scheduling and automated summaries.
+*   **Infrastructure**: The entire application is hosted on **Firebase App Hosting**, providing a scalable, serverless foundation that we don't have to manage manually.
 
 ### Part 3: Deep Dive - User Roles & Workflows
 
@@ -54,7 +57,7 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
     *   **Tenant Management**: Onboard new organizations, suspend, or deactivate them.
     *   **Organization Admin Assignment**: Designate a user within a new organization as the `OrganizationAdmin`.
     *   **System Configuration**: Manage platform-wide settings or feature flags.
-    *   **Support & Troubleshooting**: View system-wide audit logs. A critical feature will be the ability to "Impersonate" an `OrganizationAdmin` to see the application exactly as they see it for rapid support.
+    *   **Support & Troubleshooting**: View system-wide audit logs. A critical feature will be the ability to "Impersonate" an `OrganizationAdmin` to see the application exactly as they see it for rapid support, likely handled via Firebase custom claims.
 
 #### 2. OrganizationAdmin (The School Principal)
 *   **Persona**: The owner of a specific tutoring company (e.g., "Acme Tutors").
@@ -81,7 +84,7 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
 *   **Goal**: To teach, plan lessons, grade assignments, and communicate.
 *   **UI/Dashboard**: Personalized dashboard focused on "Today's Agenda," their students, and pending assignments.
 *   **Key Workflows**:
-    *   **Availability Management**: Set their weekly availability and one-off overrides.
+    *   **Availability Management**: Set their weekly availability and one-off overrides in a UI planner.
     *   **Lesson Planning & Grading**: Create lesson plans and grade student submissions (including file uploads/downloads).
     *   **Communication**: Message with students (with parent supervision) and message privately with parents.
     *   **Session Management**: Participate in the "Smart Rescheduling" workflow.
@@ -92,7 +95,7 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
 *   **UI/Dashboard**: A clean, academic-focused view showing their agenda, assignments, and schedule. No financial information is present.
 *   **Key Workflows**:
     *   **Assignment Submission**: View assignments and upload work.
-    *   **Session Management**: Initiate "Smart Rescheduling" requests.
+    *   **Session Management**: Initiate "Smart Rescheduling" requests by marking desired slots in a planner.
     *   **Communication**: Message their teacher (with their parent automatically included).
 
 #### 6. Parent (The Financial & Support Hub)
