@@ -2,7 +2,7 @@
   "entities": {
     "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
+      "title": "User Profile",
       "type": "object",
       "description": "Represents a private user profile, containing settings and preferences.",
       "properties": {
