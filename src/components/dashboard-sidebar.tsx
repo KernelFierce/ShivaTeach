@@ -122,7 +122,7 @@ export function DashboardSidebar() {
 
     return navItems.map((item) => (
       <SidebarMenuItem key={item.label}>
-        <Link href={item.href} legacyBehavior passHref>
+        <Link href={item.href}>
           <SidebarMenuButton
             isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
             icon={<item.icon />}
@@ -149,7 +149,7 @@ export function DashboardSidebar() {
         <div className="flex flex-col gap-2">
            <SidebarMenu>
               <SidebarMenuItem>
-                <Link href="/dashboard/settings" legacyBehavior passHref>
+                <Link href="/dashboard/settings">
                   <SidebarMenuButton
                     isActive={pathname === "/dashboard/settings"}
                     icon={<Settings />}
