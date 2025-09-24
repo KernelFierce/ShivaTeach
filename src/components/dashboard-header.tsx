@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import React from "react"
 
 import {
   Breadcrumb,
@@ -30,7 +31,7 @@ export function DashboardHeader() {
       <Breadcrumb className="hidden md:flex">
         <BreadcrumbList>
           {segments.map((segment, index) => (
-            <>
+            <React.Fragment key={`${segment}-${index}`}>
               <BreadcrumbItem>
                 {index < segments.length - 1 ? (
                   <BreadcrumbLink asChild>
@@ -41,7 +42,7 @@ export function DashboardHeader() {
                 )}
               </BreadcrumbItem>
               {index < segments.length - 1 && <BreadcrumbSeparator />}
-            </>
+            </React.Fragment>
           ))}
         </BreadcrumbList>
       </Breadcrumb>
