@@ -180,3 +180,25 @@ We will build the application iteratively, focusing on one user role at a time. 
 - **Live Data on User Management Page**: The User Management page (`/dashboard/users`) now fetches and displays live user data from Firestore instead of using mock data.
 - **On-Demand Data Seeding**: Removed complex data creation logic from the user signup process. A "Seed Data" button now appears on the User Management page when no users are found, allowing for the clean, intentional creation of initial data and Firestore collections.
 - **Error Handling**: Implemented a global, non-blocking error handling system for Firestore permission errors to improve debugging.
+
+## 5. Development Log & Challenges
+
+This section tracks the iterative process and debugging journey of the application's development.
+
+### Challenge 1: Initial User Authentication and Data Seeding
+- **Problem**: There was no initial user to log in with, and Firestore collections for `users` and `tenants` did not exist.
+- **Attempt 1 (In-Progress)**: The initial strategy was to create a user "on-the-fly" during the login process. If a login attempt failed with a "user not found" error, the system would automatically create a new Auth user and a corresponding Firestore document.
+  - **Status**: ❌ **Failed**. This approach quickly became complex. Modern Firebase Auth SDKs bundle "user not found" into a generic `auth/invalid-credential` error, making it difficult to distinguish from a simple wrong password. Furthermore, this tied critical database seeding logic directly to the authentication flow, which is not a robust design.
+- **Attempt 2 (In-Progress)**: Multiple attempts were made to fix the Firestore write operation within the login flow. These failed due to subtle errors, such as using blocking `await setDoc(...)` calls or providing incorrect parameters to non-blocking helper functions. This highlighted the fragility of having complex side effects in the login handler.
+  - **Status**: ❌ **Abandoned**. This approach was deemed too unreliable and complex.
+- **Final Solution (Working)**: The logic was completely refactored.
+  1.  **Decouple Seeding from Auth**: All Firestore document creation logic was removed from the login/signup page. Its sole responsibility is now to authenticate a user.
+  2.  **Implement Explicit Seeding**: A `seedInitialUserData` function was created. A "Seed Data" button was added to the User Management page (`/dashboard/users`), which appears only when no users are found in the database. Clicking this button explicitly creates a predefined set of users and their associated profiles, which in turn creates the necessary Firestore collections.
+  - **Status**: ✅ **Success**. This provides a clean, predictable, and user-controlled way to initialize the database, resolving the "chicken-and-egg" problem cleanly.
+
+### Challenge 2: Minor UI & React Warnings
+- **Problem**: The browser console showed React warnings related to missing `key` props in list renderings and usage of a deprecated `legacyBehavior` prop in Next.js `Link` components.
+- **Solution**: These were straightforward fixes.
+  1.  A unique `key` was added to the fragment in the `Breadcrumb` component's mapping logic.
+  2.  The `legacyBehavior` prop was removed from the `Link` components in the `DashboardSidebar`, adopting the modern usage pattern.
+- **Status**: ✅ **Success**. The console warnings have been resolved.
