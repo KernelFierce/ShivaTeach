@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import Image from 'next/image';
@@ -65,8 +66,11 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Successful login is handled by the useEffect hook
     } catch (error: any) {
       if (error.code === 'auth/invalid-credential') {
+        // This error code can mean user not found or wrong password.
+        // We'll attempt to create an account as a fallback.
         try {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
@@ -75,7 +79,7 @@ export default function LoginPage() {
           const tenantUserRef = doc(firestore, "tenants", "acme-tutoring", "users", newUser.uid);
           const userDisplayName = newUser.email?.split('@')[0] || 'New User';
           
-          // Create the private user profile
+          // 1. Create the private user profile
           setDocumentNonBlocking(userProfileRef, {
             email: newUser.email,
             displayName: userDisplayName,
@@ -83,7 +87,7 @@ export default function LoginPage() {
             activeTenantId: 'acme-tutoring',
           }, { merge: true });
 
-          // Create the public user record within the tenant
+          // 2. Create the public user record within the tenant
           setDocumentNonBlocking(tenantUserRef, {
             name: userDisplayName,
             email: newUser.email,
@@ -96,23 +100,28 @@ export default function LoginPage() {
             title: "Account Created",
             description: "We've created a new account for you and logged you in.",
           });
+          // New user is now logged in, useEffect will handle redirection.
+
         } catch (signUpError: any) {
+          // This block catches errors during the sign-UP attempt
           console.error("Sign-up Error:", signUpError);
           let description = "Could not create a new account.";
           if (signUpError.code === 'auth/weak-password') {
             description = 'The password is too weak. Please use at least 6 characters.';
           } else if (signUpError.code === 'auth/email-already-in-use') {
+            // This means the user exists but the initial password was wrong.
             description = 'The email or password you entered is incorrect.';
           } else if (signUpError.message) {
             description = signUpError.message;
           }
           toast({
             variant: "destructive",
-            title: "Sign-Up Failed",
+            title: "Login Failed",
             description: description,
           });
         }
       } else {
+        // This block catches other login errors (network, etc.)
         console.error("Login Error:", error);
         toast({
           variant: "destructive",
