@@ -3,10 +3,10 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { Loader2 } from 'lucide-react';
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -26,15 +27,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (!isUserLoading && user) {
+      router.replace('/dashboard');
+    }
+  }, [user, isUserLoading, router]);
+
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged in the provider will handle the user state
-      // and redirect logic could be placed in a wrapper component
-      // For now, we redirect directly on successful login
-      router.push('/dashboard');
+      // onAuthStateChanged will handle the user state and the useEffect above will redirect.
     } catch (error: any) {
       console.error(error);
       toast({
@@ -46,6 +51,14 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  if (isUserLoading || user) {
+    return (
+       <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">

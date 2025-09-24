@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Bell,
   BookMarked,
@@ -14,7 +14,9 @@ import {
   Users,
   Wallet,
 } from "lucide-react"
+import { signOut } from "firebase/auth"
 
+import { useAuth, useUser } from "@/firebase"
 import {
   Sidebar,
   SidebarContent,
@@ -34,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Logo } from "@/components/logo"
-import { user } from "@/lib/mock-data"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 
 const navItems = [
@@ -49,7 +50,19 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const auth = useAuth()
+  const { user } = useUser()
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/');
+  }
+
+  const userName = user?.displayName || user?.email?.split('@')[0] || "User";
+  const userEmail = user?.email || "";
+  const userFallback = userName.charAt(0).toUpperCase();
 
   return (
     <Sidebar>
@@ -92,21 +105,21 @@ export function DashboardSidebar() {
               <DropdownMenuTrigger asChild>
                  <div className="flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent cursor-pointer">
                     <Avatar className="h-8 w-8">
-                      {userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={user.name} data-ai-hint={userAvatar.imageHint} />}
-                      <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                      {user?.photoURL ? <AvatarImage src={user.photoURL} alt={userName} /> : userAvatar && <AvatarImage src={userAvatar.imageUrl} alt={userName} data-ai-hint={userAvatar.imageHint} />}
+                      <AvatarFallback>{userFallback}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col text-left group-data-[collapsible=icon]:hidden">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                      <p className="text-sm font-medium leading-none">{userName}</p>
+                      <p className="text-xs leading-none text-muted-foreground">{userEmail}</p>
                     </div>
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 mb-2" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
+                    <p className="text-sm font-medium leading-none">{userName}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
+                      {userEmail}
                     </p>
                   </div>
                 </DropdownMenuLabel>
@@ -120,11 +133,9 @@ export function DashboardSidebar() {
                   <span>Notifications</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </Link>
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
