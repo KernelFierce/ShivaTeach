@@ -78,54 +78,47 @@
         "name"
       ]
     },
-    "User": {
+    "TenantUser": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User",
+      "title": "Tenant User",
       "type": "object",
-      "description": "Represents a user account within the application.",
+      "description": "Represents a user's public profile and settings within a specific tenant.",
       "properties": {
-        "id": {
+        "name": {
           "type": "string",
-          "description": "Unique identifier for the user."
-        },
-        "tenantId": {
-          "type": "string",
-          "description": "Reference to Tenant. (Relationship: Tenant 1:N User)"
-        },
-        "firstName": {
-          "type": "string",
-          "description": "First name of the user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "Last name of the user."
+          "description": "The user's full name."
         },
         "email": {
           "type": "string",
-          "description": "Email address of the user.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "Phone number of the user."
+          "format": "email",
+          "description": "The user's email address."
         },
         "role": {
           "type": "string",
-          "description": "Role of the user (e.g., Admin, Teacher, Student, Parent)."
+          "description": "The user's role within this tenant.",
+          "enum": [
+            "OrganizationAdmin",
+            "Admin",
+            "Teacher",
+            "Student",
+            "Parent"
+          ]
         },
         "status": {
           "type": "string",
-          "description": "Status of the user (e.g., active, inactive)."
+          "description": "The user's status within this tenant (e.g., Active, Inactive).",
+          "enum": [
+            "Active",
+            "Inactive"
+          ]
+        },
+        "joined": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the user joined the tenant."
         }
       },
-      "required": [
-        "id",
-        "tenantId",
-        "firstName",
-        "lastName",
-        "email",
-        "role"
-      ]
+      "required": ["name", "email", "role", "status", "joined"]
     },
     "Course": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -406,7 +399,8 @@
           "description": "Reference to Course. (Relationship: Course 1:N Assignment)"
         },
         "studentId": {
-          "type": "string",          "description": "Reference to User (Student). (Relationship: User 1:N Assignment)"
+          "type": "string",
+          "description": "Reference to User (Student). (Relationship: User 1:N Assignment)"
         },
         "title": {
           "type": "string",
@@ -501,7 +495,7 @@
         "definition": {
           "entityName": "UserProfile",
           "schema": {
-            "$ref": "#/backend/entities/UserProfile"
+            "$ref": "#/entities/UserProfile"
           },
           "description": "Stores private user-specific data like preferences and roles. This path ensures only the user can access their data directly.",
           "params": [
@@ -517,7 +511,7 @@
         "definition": {
           "entityName": "Tenant",
           "schema": {
-            "$ref": "#/backend/entities/Tenant"
+            "$ref": "#/entities/Tenant"
           },
           "description": "Stores information about a specific tutoring organization (tenant).",
           "params": [
@@ -531,9 +525,9 @@
       {
         "path": "/tenants/{tenantId}/users/{userId}",
         "definition": {
-          "entityName": "User",
+          "entityName": "TenantUser",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/entities/TenantUser"
           },
           "description": "Stores public user information within a specific tenant.",
           "params": [
@@ -553,7 +547,7 @@
         "definition": {
           "entityName": "Course",
           "schema": {
-            "$ref": "#/backend/entities/Course"
+            "$ref": "#/entities/Course"
           },
           "description": "Stores course information for a tenant.",
           "params": [
@@ -573,7 +567,7 @@
         "definition": {
           "entityName": "Subject",
           "schema": {
-            "$ref": "#/backend/entities/Subject"
+            "$ref": "#/entities/Subject"
           },
           "description": "Stores subject information for a tenant.",
           "params": [
@@ -593,7 +587,7 @@
         "definition": {
           "entityName": "Session",
           "schema": {
-            "$ref": "#/backend/entities/Session"
+            "$ref": "#/entities/Session"
           },
           "description": "Stores session information for a tenant.",
           "params": [
@@ -613,7 +607,7 @@
         "definition": {
           "entityName": "Invoice",
           "schema": {
-            "$ref": "#/backend/entities/Invoice"
+            "$ref": "#/entities/Invoice"
           },
           "description": "Stores invoice information for a tenant.",
           "params": [
@@ -633,7 +627,7 @@
         "definition": {
           "entityName": "Payment",
           "schema": {
-            "$ref": "#/backend/entities/Payment"
+            "$ref": "#/entities/Payment"
           },
           "description": "Stores payment information for a specific invoice.",
           "params": [
@@ -657,7 +651,7 @@
         "definition": {
           "entityName": "Availability",
           "schema": {
-            "$ref": "#/backend/entities/Availability"
+            "$ref": "#/entities/Availability"
           },
           "description": "Stores teacher availability for a tenant.",
           "params": [
@@ -677,7 +671,7 @@
         "definition": {
           "entityName": "Assignment",
           "schema": {
-            "$ref": "#/backend/entities/Assignment"
+            "$ref": "#/entities/Assignment"
           },
           "description": "Stores assignment information for a tenant.",
           "params": [
@@ -697,7 +691,7 @@
         "definition": {
           "entityName": "Lead",
           "schema": {
-            "$ref": "#/backend/entities/Lead"
+            "$ref": "#/entities/Lead"
           },
           "description": "Stores lead information for a tenant.",
           "params": [
@@ -716,3 +710,4 @@
     "reasoning": "The Firestore structure is designed to ensure Authorization Independence, clarity, and scalability, adhering to the principles of DBAC (Database-Based Access Control) and QAPs (Rules are not Filters).  Authorization Independence is achieved through denormalization.  For instance, each document within a subcollection related to a tenant (e.g., users, courses) will include the `tenantId` field, eliminating the need for security rules to perform costly `get()` operations to verify tenant membership.  The structure also facilitates secure `list` operations.  Private user data is stored under `/users/{userId}`, enabling straightforward ownership-based security rules.  Tenant-owned data is segregated by using the `tenants/{tenantId}` path as a prefix, and relevant properties (like tenantId) are denormalized into subcollections to avoid `get()` calls in rules. Collaborative data, such as determining roles, will rely on the existence of documents in dedicated collections (e.g., `/roles_admin/{uid}`)."
   }
 }
+    

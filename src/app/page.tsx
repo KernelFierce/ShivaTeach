@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { format } from 'date-fns';
 
 import { useAuth, useUser, useFirestore } from '@/firebase';
 import { Button } from '@/components/ui/button';
@@ -70,13 +71,25 @@ export default function LoginPage() {
           const userCredential = await createUserWithEmailAndPassword(auth, email, password);
           const newUser = userCredential.user;
           
-          const userDocRef = doc(firestore, "users", newUser.uid);
+          const userProfileRef = doc(firestore, "users", newUser.uid);
+          const tenantUserRef = doc(firestore, "tenants", "acme-tutoring", "users", newUser.uid);
+          const userDisplayName = newUser.email?.split('@')[0] || 'New User';
           
-          setDocumentNonBlocking(userDocRef, {
+          // Create the private user profile
+          setDocumentNonBlocking(userProfileRef, {
             email: newUser.email,
-            displayName: newUser.email?.split('@')[0] || 'New User',
+            displayName: userDisplayName,
             role: 'OrganizationAdmin', // Assign a default role
-            createdAt: new Date(),
+            activeTenantId: 'acme-tutoring',
+          }, {});
+
+          // Create the public user record within the tenant
+          setDocumentNonBlocking(tenantUserRef, {
+            name: userDisplayName,
+            email: newUser.email,
+            role: 'OrganizationAdmin',
+            status: 'Active',
+            joined: format(new Date(), 'yyyy-MM-dd'),
           }, {});
 
           toast({
@@ -214,3 +227,4 @@ export default function LoginPage() {
     </div>
   );
 }
+    
