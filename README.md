@@ -1,7 +1,5 @@
 # TutorHub v2.0
 
-This is a Next.js starter project for TutorHub, an all-in-one platform for tutoring organizations.
-
 ## 1. Implemented Features
 
 This initial version focuses on establishing the frontend foundation and user interface.
@@ -106,3 +104,63 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
     *   **Financial Management**: View and pay invoices, add funds to a credit balance, and view transaction history.
     *   **Academic Oversight (Read-Only)**: View the selected child's schedule, grades, and attendance.
     *   **Communication**: Automatically included in all teacher-student conversations. Ability to initiate a private, one-on-one conversation with a teacher.
+
+## 3. Development Plan: Role-Based Sprints
+
+We will build the application iteratively, focusing on one user role at a time. Each "sprint" will deliver the core pages and UI for a specific role.
+
+### Sprint 0: Foundation & Setup (Complete)
+- **Status**: ✅ Done
+- **Objective**: Establish the core project structure, UI framework, and initial static pages.
+
+### Sprint 1: OrganizationAdmin
+- **Status**: ⏳ To Do
+- **Objective**: Build the core management features for the organization owner.
+- **Features**:
+    1.  **Organization Settings Page**: Create the UI for managing billing policies and default rates.
+    2.  **User Management Page**: Build the UI to view, add, and edit users (`Admin`, `Teacher`, `Student`, `Parent`).
+    3.  **Course Management Page**: Create a page to define subjects and courses.
+    4.  **Dashboard View**: Tailor the existing dashboard to show organization-wide metrics.
+
+### Sprint 2: Teacher
+- **Status**: ⏳ To Do
+- **Objective**: Create the tools tutors need to manage their work.
+- **Features**:
+    1.  **Teacher Dashboard**: A personalized view showing "Today's Agenda" and assigned students.
+    2.  **Availability Page**: A UI planner for teachers to set their weekly availability and overrides.
+    3.  **Lesson & Grading Page**: UI to create lesson plans and view student submissions.
+    4.  **Communication Interface**: A basic messaging UI for communicating with students and parents.
+
+### Sprint 3: Student
+- **Status**: ⏳ To Do
+- **Objective**: Build the student-facing academic portal.
+- **Features**:
+    1.  **Student Dashboard**: A simplified view of their schedule and upcoming assignments.
+    2.  **Assignment Submission Page**: A page to view assignment details and upload files.
+    3.  **"Smart Reschedule" Request UI**: A planner view for students to request new session times.
+
+### Sprint 4: Parent
+- **Status**: ⏳ To Do
+- **Objective**: Create the parent portal for financial and academic oversight.
+- **Features**:
+    1.  **Parent Dashboard**: A portal to view/pay invoices, manage credit balance, and see transaction history.
+    2.  **Child View**: A read-only view of their child's schedule, grades, and attendance.
+    3.  **Communication View**: A unified inbox to see supervised conversations and message teachers directly.
+
+### Sprint 5: Admin
+- **Status**: ⏳ To Do
+- **Objective**: Build the operational "Command Center" for day-to-day tasks.
+- **Features**:
+    1.  **Master Schedule Page**: A comprehensive schedule viewer for all organization sessions.
+    2.  **Lead Management Page**: A UI to manage and convert leads.
+    3.  **Financials Page**: UI for generating invoices, logging payments, and managing balances.
+
+### Sprint 6: SuperAdmin
+- **Status**: ⏳ To Do
+- **Objective**: Build the platform-level management tools.
+- **Features**:
+    1.  **SuperAdmin Dashboard**: A top-level view of all organizations and platform metrics.
+    2.  **Tenant Management Page**: UI to onboard, suspend, and manage organizations.
+
+### Post-Sprints: Backend Integration
+- **Objective**: Connect all the UI we've built to the Firebase backend. This will be an ongoing process throughout the sprints, but we'll have a dedicated phase to ensure everything is wired up, secure, and working end-to-end.
