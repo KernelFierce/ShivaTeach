@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   Bell,
+  BookMarked,
   Calendar,
   Home,
   LineChart,
@@ -39,6 +40,7 @@ const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
   { href: "/dashboard/users", icon: Users, label: "User Management" },
+  { href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
   { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
   { href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
 ]
@@ -58,7 +60,7 @@ export function DashboardSidebar() {
             <SidebarMenuItem key={item.label}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href)}
+                  isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
                   icon={<item.icon />}
                   tooltip={item.label}
                 >
