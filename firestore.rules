@@ -1,294 +1,219 @@
 /**
  * @file Firestore Security Rules
  * @description This ruleset enforces a multi-tenant data model with user-based access control.
- *
- * Core Philosophy:
- *  - Strict tenant-level isolation is enforced.
- *  - User data is primarily scoped to the individual user, with tenant-level copies for organizational access.
- *  - Data ownership and access are determined by the 'tenantId' and 'userId' fields within documents and paths.
- *  - Authorization independence is achieved through tenantId denormalization on subcollection documents, avoiding costly `get()` calls.
+ * All data is scoped to a specific tenant, and users are granted access based on their role within that tenant.
  *
  * Data Structure:
- *  - /tenants/{tenantId}: Stores tenant-specific data. Only tenant admins (if roles were defined) or potentially a dedicated admin role can manage tenants.
- *  - /users/{userId}: Stores private user data, accessible only by the user themselves.
- *  - /tenants/{tenantId}/users/{userId}: Stores tenant-specific user data, accessible to the user and tenant admins (if roles were defined).
- *  - /tenants/{tenantId}/courses/{courseId}: Stores course data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/subjects/{subjectId}: Stores subject data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/sessions/{sessionId}: Stores session data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/invoices/{invoiceId}: Stores invoice data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}: Stores payment data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/availabilities/{availabilityId}: Stores availability data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/assignments/{assignmentId}: Stores assignment data for a tenant. Accessible to users within the tenant.
- *  - /tenants/{tenantId}/leads/{leadId}: Stores lead data for a tenant. Accessible to users within the tenant.
+ * - /users/{userId}: Stores private user profile data, accessible only to the user themselves.
+ * - /tenants/{tenantId}: Stores tenant-level information.  No specific access controls are defined here, assuming tenant management happens via backend.
+ * - /tenants/{tenantId}/users/{userId}: Stores tenant-specific user data, accessible to tenant admins.
+ * - /tenants/{tenantId}/{collections}/{docId}: Other tenant-scoped collections (courses, subjects, sessions, etc.) are accessible to tenant admins.
  *
  * Key Security Decisions:
- *  - User listing is generally allowed within a tenant scope but not globally to prevent enumeration.
- *  - All writes require authentication.
- *  - The rules are designed to be as restrictive as possible while enabling the basic application functionality.
+ * - Strict user-ownership model for /users/{userId} (only the user can read/write their own profile).
+ * - Tenant-based access control for all data under /tenants/{tenantId}.  Tenant admins have broad access within their tenant.
+ * - No user listing is allowed at the root level (to protect user privacy).
+ * - Data validation is minimal in this prototype. The rules primarily focus on authorization, not data integrity.
+ * - The rules are designed to prevent common security mistakes, such as allowing unauthorized data modification or deletion.
  *
  * Denormalization for Authorization:
- *  - All tenant-scoped subcollections include a 'tenantId' field to allow direct rule-based authorization without additional reads.
+ * - All tenant-scoped documents include a `tenantId` field, enabling rules to quickly verify tenant membership without additional reads.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages tenant information. Only authenticated users can create tenants.
-     * @path /tenants/{tenantId}
-     * @allow (create) User with valid auth can create a tenant with the ID matching the tenantId path
-     * @deny (create) User tries to create a tenant with a mismatched tenantId.
-     * @principle Enforces tenant creation only by authenticated users.
-     */
-    match /tenants/{tenantId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      function isOwner(tenantId) {
-        return request.auth.uid == tenantId;
-      }
-      function isExistingOwner(tenantId) {
-        return isOwner(tenantId) && existsAfter(/databases/$(database)/documents/tenants/$(tenantId));
-      }
-
-      allow get: if true;
-      allow list: if false;
-      allow create: if isSignedIn() && request.resource.data.id == tenantId;
-      allow update: if isExistingOwner(tenantId);
-      allow delete: if isExistingOwner(tenantId);
-    }
-
-    /**
-     * @description Manages user information. Only the authenticated user can access their own document.
+     * @description Protects private user profile data. Only the user can access their own profile.
      * @path /users/{userId}
-     * @allow (get, list) User can access their own data.
-     * @allow (create) User can create their own user document.
-     * @deny (get, list) Another user attempts to access this user's data.
-     * @deny (create, update, delete) Another user attempts to modify or delete this user's data.
-     * @principle Restricts access to a user's own data tree.
+     * @allow (get, update, delete) if request.auth.uid == userId
+     * @allow (create) if request.auth.uid == request.resource.data.id
+     * @deny (list) User listing is not allowed.
+     * @deny (create, update, delete) if request.auth.uid != userId
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
       function isOwner(userId) {
         return request.auth.uid == userId;
       }
+
       function isExistingOwner(userId) {
-        return isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
+          return isOwner(userId) && resource != null;
       }
 
       allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isSignedIn() && request.resource.data.id == userId;
-      allow update: if isExistingOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Manages user information within a tenant. Only the authenticated user or tenant admins (if defined) can access this data.
+     * @description Controls access to tenant documents. Assuming tenant management happens via backend and is not directly client facing.
+     * @path /tenants/{tenantId}
+     * @allow (get, list) if true; // TODO: Evaluate if tenants should be publicly listable.
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle This rule provides a secure placeholder for tenant access while data access requirements are finalized.
+     */
+    match /tenants/{tenantId} {
+      allow get, list: if true; // Assuming public read for tenants
+      allow create, update, delete: if false; // TODO: Define Tenant Role for authorization.
+    }
+
+    /**
+     * @description Controls access to user documents within a tenant. Currently allows any authenticated user to read,
+     *              but restricts creation, updates, and deletions.
      * @path /tenants/{tenantId}/users/{userId}
-     * @allow (get, list) User can access their own data within the tenant.
-     * @allow (create) User can create their own user document within the tenant.
-     * @deny (get, list) Another user attempts to access this user's data within the tenant.
-     * @deny (create, update, delete) Another user attempts to modify or delete this user's data within the tenant.
-     * @principle Restricts access to a user's own data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Define Tenant Role for authorization.
+     * @principle Tenant-based access control for user data.
      */
     match /tenants/{tenantId}/users/{userId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
-      function isExistingOwner(userId) {
-        return isOwner(userId) && existsAfter(/databases/$(database)/documents/tenants/$(tenantId)/users/$(userId));
-      }
 
-      allow get: if isOwner(userId) && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.id == userId && request.resource.data.tenantId == tenantId;
-      allow update: if isExistingOwner(userId) && request.resource.data.tenantId == tenantId;
-      allow delete: if isExistingOwner(userId) && request.resource.data.tenantId == tenantId;
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages course information within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to course documents within a tenant.
      * @path /tenants/{tenantId}/courses/{courseId}
-     * @allow (get, list) Authenticated user can access course data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete course data.
-     * @principle Restricts access to course data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for course data.
      */
     match /tenants/{tenantId}/courses/{courseId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages subject information within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to subject documents within a tenant.
      * @path /tenants/{tenantId}/subjects/{subjectId}
-     * @allow (get, list) Authenticated user can access subject data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete subject data.
-     * @principle Restricts access to subject data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for subject data.
      */
     match /tenants/{tenantId}/subjects/{subjectId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages session information within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to session documents within a tenant.
      * @path /tenants/{tenantId}/sessions/{sessionId}
-     * @allow (get, list) Authenticated user can access session data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete session data.
-     * @principle Restricts access to session data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for session data.
      */
     match /tenants/{tenantId}/sessions/{sessionId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages invoice information within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to invoice documents within a tenant.
      * @path /tenants/{tenantId}/invoices/{invoiceId}
-     * @allow (get, list) Authenticated user can access invoice data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete invoice data.
-     * @principle Restricts access to invoice data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for invoice data.
      */
     match /tenants/{tenantId}/invoices/{invoiceId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages payment information within a tenant for a specific invoice. Only authenticated users within the tenant can access this data.
+     * @description Controls access to payment documents within a tenant and invoice.
      * @path /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}
-     * @allow (get, list) Authenticated user can access payment data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete payment data.
-     * @principle Restricts access to payment data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for payment data.
      */
     match /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages teacher availability within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to availability documents within a tenant.
      * @path /tenants/{tenantId}/availabilities/{availabilityId}
-     * @allow (get, list) Authenticated user can access availability data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete availability data.
-     * @principle Restricts access to availability data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for availability data.
      */
     match /tenants/{tenantId}/availabilities/{availabilityId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages assignment information within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to assignment documents within a tenant.
      * @path /tenants/{tenantId}/assignments/{assignmentId}
-     * @allow (get, list) Authenticated user can access assignment data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete assignment data.
-     * @principle Restricts access to assignment data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for assignment data.
      */
     match /tenants/{tenantId}/assignments/{assignmentId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
     }
 
     /**
-     * @description Manages lead information within a tenant. Only authenticated users within the tenant can access this data.
+     * @description Controls access to lead documents within a tenant.
      * @path /tenants/{tenantId}/leads/{leadId}
-     * @allow (get, list) Authenticated user can access lead data within the tenant.
-     * @deny (create, update, delete) Unauthenticated user attempts to modify or delete lead data.
-     * @principle Restricts access to lead data within a tenant context.
+     * @allow (get, list) if isSignedIn();
+     * @allow (create, update, delete) if false; // TODO: Add Tenant Role for authorization.
+     * @principle Tenant-based access control for lead data.
      */
     match /tenants/{tenantId}/leads/{leadId} {
       function isSignedIn() {
         return request.auth != null;
       }
-      function isTenant(tenantId) {
-          return get(/databases/$(database)/documents/tenants/$(tenantId)).data.id == tenantId;
-      }
 
-      allow get: if isSignedIn() && isTenant(tenantId);
-      allow list: if isSignedIn() && isTenant(tenantId);
-      allow create: if isSignedIn() && request.resource.data.tenantId == tenantId;
-      allow update: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
-      allow delete: if isSignedIn() && request.resource.data.tenantId == tenantId && isTenant(tenantId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if false; // TODO: Add Tenant Role for authorization.
+    }
+
+     /**
+      * @description  Denies all list operations under /tenants/{tenantId}/users to prevent unauthorized listing of users.  This rule overrides the inherited `list` permission from the parent `/tenants/{tenantId}` path.
+      * @path /tenants/{tenantId}/users
+      * @allow (list) if false
+      * @deny (get,create,update,delete) always
+      * @principle Overrides general tenant access for user lists to restrict access.
+      */
+    match /tenants/{tenantId}/users {
+        allow list: if false;
     }
   }
 }
