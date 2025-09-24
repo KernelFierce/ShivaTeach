@@ -25,11 +25,15 @@ export const financialData = [
   { month: 'Jun', revenue: 2390, expenses: 3800 },
 ];
 
-export const students = [
-  { id: 'STU-001', name: 'Alex Johnson', email: 'alex.j@example.com', status: 'Active', joined: '2023-01-15' },
-  { id: 'STU-002', name: 'Sarah Lee', email: 'sarah.l@example.com', status: 'Active', joined: '2023-02-20' },
-  { id: 'STU-003', name: 'Tom Wilson', email: 'tom.w@example.com', status: 'Active', joined: '2023-03-10' },
-  { id: 'STU-004', name: 'Jessica Brown', email: 'jessica.b@example.com', status: 'Inactive', joined: '2023-04-05' },
-  { id: 'STU-005', name: 'Michael Davis', email: 'michael.d@example.com', status: 'Lead', joined: '2023-05-21' },
-  { id: 'STU-006', name: 'Emily White', email: 'emily.w@example.com', status: 'Active', joined: '2023-06-01' },
+export const users = [
+  { id: 'USR-001', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'Student', status: 'Active', joined: '2023-01-15' },
+  { id: 'USR-002', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'Admin', status: 'Active', joined: '2022-11-20' },
+  { id: 'USR-003', name: 'David Chen', email: 'david.c@example.com', role: 'Teacher', status: 'Active', joined: '2023-02-01' },
+  { id: 'USR-004', name: 'Sarah Lee', email: 'sarah.l@example.com', role: 'Student', status: 'Active', joined: '2023-02-20' },
+  { id: 'USR-005', name: 'Tom Wilson', email: 'tom.w@example.com', role: 'Student', status: 'Inactive', joined: '2023-03-10' },
+  { id: 'USR-006', name: 'Jessica Brown', email: 'jessica.b@example.com', role: 'Parent', status: 'Active', joined: '2023-04-05' },
+  { id: 'USR-007', name: 'Michael Davis', email: 'michael.d@example.com', role: 'Lead', status: 'Lead', joined: '2023-05-21' },
+  { id: 'USR-008', name: 'Emily White', email: 'emily.w@example.com', role: 'Student', status: 'Active', joined: '2023-06-01' },
 ];
+
+export const students = users.filter(u => u.role === 'Student');

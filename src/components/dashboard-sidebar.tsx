@@ -38,7 +38,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images"
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Dashboard" },
   { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/dashboard/students", icon: Users, label: "Students" },
+  { href: "/dashboard/users", icon: Users, label: "Users" },
   { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
   { href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
 ]
@@ -58,7 +58,7 @@ export function DashboardSidebar() {
             <SidebarMenuItem key={item.label}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
-                  isActive={pathname === item.href}
+                  isActive={pathname === item.href || (item.href === "/dashboard/users" && pathname.startsWith("/dashboard/students"))}
                   icon={<item.icon />}
                   tooltip={item.label}
                 >
