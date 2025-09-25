@@ -69,6 +69,7 @@ export default function UsersPage() {
         toast({ title: 'Success!', description: 'Initial user data has been seeded.' });
         // The useCollection hook will automatically refresh the data.
     } catch (e: any) {
+        console.error("Seeding failed:", e);
         toast({ variant: 'destructive', title: 'Seeding Failed', description: e.message || 'Could not seed database.' });
     } finally {
         setIsSeeding(false);

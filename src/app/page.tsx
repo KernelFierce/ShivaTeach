@@ -52,13 +52,13 @@ export default function LoginPage() {
             router.replace(dashboardPath);
           } else {
              // This case is now for users who have an Auth account but NO profile document.
-             // This is the state of a manually created Auth user.
+             // This happens if a user is created in the Auth console but not seeded in Firestore.
             toast({
               variant: "destructive",
               title: "Profile Incomplete",
-              description: "Your user profile was not found. Please contact an administrator to have your profile created in the system.",
+              description: "Your user profile was not found. Please click 'Seed Initial Data' on the User Management page if the database is empty, or contact an admin.",
             });
-            auth.signOut();
+            // We don't sign out, to allow the admin to navigate to the user page and seed.
           }
         } catch (error) {
             console.error("Error fetching user profile:", error);
@@ -86,20 +86,21 @@ export default function LoginPage() {
         title: "Login Successful",
         description: "Redirecting to your dashboard...",
       });
+      // The useEffect will handle the redirect.
     } catch (error: any) {
        toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "The email or password you entered is incorrect.",
+        description: "The email or password you entered is incorrect. Note: Seeding data does not create auth users.",
       });
     } finally {
       setIsLoading(false);
     }
   };
   
-  // This button is for creating an Auth user, but it won't create the necessary DB records.
-  // This is now an auxiliary function, with the main data creation handled by the seeding process.
-  const handleSignUp = async (e: React.FormEvent) => {
+  // This button is for creating an Auth user for testing. It does NOT create the DB records.
+  // The primary flow is to log in with an account whose data has been seeded.
+  const handleCreateAuthUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) return;
     setIsLoading(true);
@@ -107,20 +108,21 @@ export default function LoginPage() {
     try {
         await createUserWithEmailAndPassword(auth, email, password);
         toast({
-            title: "Authentication Account Created",
-            description: "Your authentication account has been created. An administrator must create your user profile before you can log in.",
+            title: "Auth Account Created",
+            description: "An auth user was created. You must now seed the Firestore data for this user before they can log in successfully.",
         });
+        // Sign out so they don't get stuck in the 'profile incomplete' state.
         await auth.signOut();
     } catch (error: any) {
-        let description = "An unknown error occurred during sign-up.";
+        let description = "An unknown error occurred.";
         if (error.code === 'auth/weak-password') {
             description = 'The password is too weak. Please use at least 6 characters.';
         } else if (error.code === 'auth/email-already-in-use') {
-            description = 'This email is already in use. Please try logging in instead.';
+            description = 'This email is already in use by an auth user.';
         }
         toast({
             variant: "destructive",
-            title: "Sign-up Failed",
+            title: "Auth Creation Failed",
             description: description,
         });
     } finally {
@@ -136,6 +138,7 @@ export default function LoginPage() {
     }
   }, []);
 
+  // Show a loader while checking for an existing user session or during login redirect.
   if (isUserLoading || user) {
     return (
        <div className="flex items-center justify-center h-screen">
@@ -159,7 +162,7 @@ export default function LoginPage() {
             <CardHeader>
               <CardTitle className="text-2xl font-headline">Login</CardTitle>
               <CardDescription>
-                Use an administrator-provided account to log in.
+                Use a pre-defined account to log in. The database must be seeded first.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -200,19 +203,16 @@ export default function LoginPage() {
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Login
                     </Button>
-                    <Button variant="secondary" className="w-full" onClick={handleSignUp} disabled={isLoading}>
+                    <Button variant="secondary" className="w-full" onClick={handleCreateAuthUser} disabled={isLoading}>
                          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Create Auth Account
+                        Create Auth User Only
                     </Button>
                 </div>
               </form>
             </CardContent>
           </Card>
           <div className="mt-4 text-center text-sm">
-            Need an account?{' '}
-            <Link href="#" className="underline">
-              Contact your administrator
-            </Link>
+            Note: Creating an auth user does not seed the database.
           </div>
         </div>
       </div>
