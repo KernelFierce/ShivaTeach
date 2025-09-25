@@ -27,7 +27,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection, writeBatch } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { seedInitialUserData } from '@/lib/seed';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
@@ -57,7 +57,7 @@ export default function UsersPage() {
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, tenantId]);
 
-  const { data: users, isLoading, error, manualRefresh } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: users, isLoading, error } = useCollection<TenantUser>(usersCollectionRef);
 
   const getBadgeVariant = (status: string) => {
     return status === 'Active' ? 'default' : 'secondary';
@@ -79,6 +79,7 @@ export default function UsersPage() {
             title: "Data Seeded!",
             description: "Initial user data has been added to Firestore.",
         });
+        // Note: useCollection should automatically update the view.
     } catch (e) {
         console.error("Seeding error:", e);
         toast({

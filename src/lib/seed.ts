@@ -43,7 +43,6 @@ const initialUsers = [
  * @param firestore - The Firestore instance.
  * @param tenantId - The ID of the tenant to seed users for.
  * @param adminUid - The UID of the currently logged-in admin user.
- * @param adminProfileData - The profile data for the admin user.
  */
 export async function seedInitialUserData(
   firestore: Firestore,
