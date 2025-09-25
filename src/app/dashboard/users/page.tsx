@@ -30,6 +30,8 @@ import {
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { format } from "date-fns";
+import { useRouter } from 'next/navigation';
+
 
 interface User {
   id: string;
@@ -43,6 +45,8 @@ interface User {
 export default function UsersPage() {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
+  const router = useRouter();
+
 
   const usersCollectionRef = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -128,6 +132,9 @@ export default function UsersPage() {
         <UsersIcon className="mx-auto h-12 w-12" />
         <h3 className="mt-4 text-lg font-semibold">No Users Found</h3>
         <p className="mt-2 text-sm">Once the initial admin user is created, users for this organization will appear here.</p>
+         <Button onClick={() => router.push('/dashboard/create-user')} className="mt-4">
+            Create Initial Admin
+          </Button>
       </div>
     );
   };
