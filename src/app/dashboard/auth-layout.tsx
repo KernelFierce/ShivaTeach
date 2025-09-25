@@ -15,23 +15,32 @@ export function AuthLayout({ children }: PropsWithChildren) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  // useEffect(() => {
-  //   // TEMPORARILY DISABLED to allow for initial data creation.
-  //   // In a real app, you'd want to re-enable this to protect routes.
-  //   if (!isUserLoading && !user) {
-  //     router.replace('/');
-  //   }
-  // }, [user, isUserLoading, router]);
+  useEffect(() => {
+    // TEMPORARILY DISABLED to allow for initial data creation.
+    // In a real app, you'd want to re-enable this to protect routes.
+    if (!isUserLoading && !user) {
+      router.replace('/');
+    }
+  }, [user, isUserLoading, router]);
 
-  // if (isUserLoading) {
-  //   return (
-  //     <div className="flex items-center justify-center h-screen">
-  //       <Loader2 className="h-8 w-8 animate-spin" />
-  //     </div>
-  //   );
-  // }
+  if (isUserLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
-  // Render the layout without checking for authentication.
+  // Render the layout only if user is available, otherwise show loader or redirect.
+  // This avoids rendering data-dependent components for unauthenticated users.
+  if (!user) {
+     return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Redirecting to login...</p>
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider>
       <DashboardSidebar />
