@@ -16,14 +16,14 @@ export function AuthLayout({ children }: PropsWithChildren) {
   const router = useRouter();
 
   // useEffect(() => {
-  //   // TEMPORARILY DISABLED to allow for initial data seeding without login.
+  //   // TEMPORARILY DISABLED to allow for initial data creation.
+  //   // In a real app, you'd want to re-enable this to protect routes.
   //   if (!isUserLoading && !user) {
   //     router.replace('/');
   //   }
   // }, [user, isUserLoading, router]);
 
-  // TEMPORARILY DISABLED: We will not show a loader or block rendering.
-  // if (isUserLoading || !user) {
+  // if (isUserLoading) {
   //   return (
   //     <div className="flex items-center justify-center h-screen">
   //       <Loader2 className="h-8 w-8 animate-spin" />
