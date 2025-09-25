@@ -1,9 +1,10 @@
 
 "use client"
 
-import { useUser } from "@/firebase"
-import { useRouter } from "next/navigation"
+import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
+import { useRouter, usePathname } from "next/navigation"
 import { useEffect, type PropsWithChildren } from "react"
+import { doc } from "firebase/firestore"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { DashboardHeader } from "@/components/dashboard-header"
@@ -13,26 +14,58 @@ import { Loader2 } from "lucide-react"
 
 export function AuthLayout({ children }: PropsWithChildren) {
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, "users", user.uid);
+  }, [firestore, user?.uid]);
+
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
 
   useEffect(() => {
-    // TEMPORARILY DISABLED to allow for initial data creation.
-    // In a real app, you'd want to re-enable this to protect routes.
-    if (!isUserLoading && !user) {
-      router.replace('/');
-    }
-  }, [user, isUserLoading, router]);
+    if (isUserLoading || isProfileLoading) return; // Wait for user and profile to load
 
-  if (isUserLoading) {
+    if (!user) {
+      router.replace('/');
+      return;
+    }
+    
+    // Redirect based on role if they are on a mismatched page
+    if (userProfile?.role) {
+      const role = userProfile.role;
+      const expectedPath = `/dashboard/${role.toLowerCase().replace('admin', '')}`.replace(/\/$/, ""); // e.g., /dashboard/teacher
+      
+      const isBasePath = pathname === '/dashboard';
+      const isCorrectRolePath = pathname.startsWith(expectedPath);
+      const isAdminOnDashboard = (role === 'OrganizationAdmin' || role === 'Admin') && isBasePath;
+      
+      // Allow admins on the root dashboard, otherwise redirect to their specific dashboard
+      if (!isCorrectRolePath && !isAdminOnDashboard) {
+        if (role === 'OrganizationAdmin' || role === 'Admin') {
+          router.replace('/dashboard');
+        } else {
+           router.replace(expectedPath);
+        }
+      }
+    }
+
+  }, [user, isUserLoading, userProfile, isProfileLoading, router, pathname]);
+
+  const isLoading = isUserLoading || isProfileLoading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading user data...</span>
       </div>
     );
   }
 
-  // Render the layout only if user is available, otherwise show loader or redirect.
-  // This avoids rendering data-dependent components for unauthenticated users.
+  // If there's no user object, redirect logic will handle it, but we can show a message.
   if (!user) {
      return (
       <div className="flex items-center justify-center h-screen">
