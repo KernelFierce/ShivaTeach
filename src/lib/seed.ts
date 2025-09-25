@@ -11,69 +11,70 @@ const initialData = {
     { id: 'subj-sci', name: 'Science', description: 'Covering biology, chemistry, and physics.' },
     { id: 'subj-eng', name: 'English', description: 'Literature, writing, and grammar.' },
     { id: 'subj-hist', name: 'History', description: 'World history and social studies.' },
+    { id: 'subj-cs', name: 'Computer Science', description: 'Programming and technology.' },
+    { id: 'subj-art', name: 'Art', description: 'Creative expression and techniques.' },
   ],
   courses: [
     { id: 'course-alg1', subjectId: 'subj-math', name: 'Algebra I', hourlyRate: 45 },
     { id: 'course-phy1', subjectId: 'subj-sci', name: 'Physics 101', hourlyRate: 50 },
     { id: 'course-lit1', subjectId: 'subj-eng', name: 'American Literature', hourlyRate: 40 },
+    { id: 'course-whist', subjectId: 'subj-hist', name: 'World History II', hourlyRate: 40 },
+    { id: 'course-python', subjectId: 'subj-cs', name: 'Intro to Python', hourlyRate: 55 },
+    { id: 'course-paint', subjectId: 'subj-art', name: 'Digital Painting', hourlyRate: 48 },
   ],
   users: [
     {
       id: 'teacher-01',
-      profile: {
-        displayName: 'David Chen',
-        email: 'david.c@example.com',
-        role: 'Teacher',
-        activeTenantId: 'acme-tutoring',
-      },
-      tenantProfile: {
-        name: 'David Chen',
-        email: 'david.c@example.com',
-        role: 'Teacher',
-        status: 'Active',
-        joined: today,
-      }
+      profile: { displayName: 'David Chen', email: 'david.c@example.com', role: 'Teacher', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'David Chen', email: 'david.c@example.com', role: 'Teacher', status: 'Active', joined: today }
+    },
+    {
+      id: 'teacher-02',
+      profile: { displayName: 'Sarah Wilson', email: 'sarah.w@example.com', role: 'Teacher', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'Sarah Wilson', email: 'sarah.w@example.com', role: 'Teacher', status: 'Active', joined: today }
     },
     {
       id: 'student-01',
-      profile: {
-        displayName: 'Alex Johnson',
-        email: 'alex.j@example.com',
-        role: 'Student',
-        activeTenantId: 'acme-tutoring',
-      },
-      tenantProfile: {
-        name: 'Alex Johnson',
-        email: 'alex.j@example.com',
-        role: 'Student',
-        status: 'Active',
-        joined: today,
-      }
+      profile: { displayName: 'Alex Johnson', email: 'alex.j@example.com', role: 'Student', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'Alex Johnson', email: 'alex.j@example.com', role: 'Student', status: 'Active', joined: today }
     },
     {
       id: 'parent-01',
-      profile: {
-        displayName: 'Maria Johnson',
-        email: 'maria.j@example.com',
-        role: 'Parent',
-        activeTenantId: 'acme-tutoring',
-      },
-      tenantProfile: {
-        name: 'Maria Johnson',
-        email: 'maria.j@example.com',
-        role: 'Parent',
-        status: 'Active',
-        joined: today,
-      }
+      profile: { displayName: 'Maria Johnson', email: 'maria.j@example.com', role: 'Parent', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'Maria Johnson', email: 'maria.j@example.com', role: 'Parent', status: 'Active', joined: today }
+    },
+     {
+      id: 'student-02',
+      profile: { displayName: 'Emily Carter', email: 'emily.c@example.com', role: 'Student', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'Emily Carter', email: 'emily.c@example.com', role: 'Student', status: 'Active', joined: today }
+    },
+    {
+      id: 'parent-02',
+      profile: { displayName: 'John Carter', email: 'john.c@example.com', role: 'Parent', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'John Carter', email: 'john.c@example.com', role: 'Parent', status: 'Active', joined: today }
+    },
+    {
+      id: 'student-03',
+      profile: { displayName: 'Ben Miller', email: 'ben.m@example.com', role: 'Student', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'Ben Miller', email: 'ben.m@example.com', role: 'Student', status: 'Inactive', joined: today }
+    },
+     {
+      id: 'admin-01',
+      profile: { displayName: 'Laura Smith', email: 'laura.s@example.com', role: 'Admin', activeTenantId: 'acme-tutoring' },
+      tenantProfile: { name: 'Laura Smith', email: 'laura.s@example.com', role: 'Admin', status: 'Active', joined: today }
     },
   ],
   sessions: [
     { id: 'sess-01', courseId: 'course-alg1', teacherId: 'teacher-01', studentId: 'student-01', startTime: '10:00 AM', status: 'Scheduled' },
-    { id: 'sess-02', courseId: 'course-phy1', teacherId: 'teacher-01', studentId: 'student-01', startTime: '2:00 PM', status: 'Completed' },
+    { id: 'sess-02', courseId: 'course-phy1', teacherId: 'teacher-01', studentId: 'student-02', startTime: '2:00 PM', status: 'Completed' },
+    { id: 'sess-03', courseId: 'course-python', teacherId: 'teacher-02', studentId: 'student-01', startTime: '11:00 AM', status: 'Scheduled' },
+    { id: 'sess-04', courseId: 'course-paint', teacherId: 'teacher-02', studentId: 'student-02', startTime: '3:00 PM', status: 'Cancelled' },
   ],
   leads: [
       { id: 'lead-01', firstName: 'Jessica', lastName: 'Williams', email: 'j.williams@email.com', status: 'New'},
       { id: 'lead-02', firstName: 'Michael', lastName: 'Brown', email: 'm.brown@email.com', status: 'Contacted'},
+      { id: 'lead-03', firstName: 'Chloe', lastName: 'Davis', email: 'c.davis@email.com', status: 'Converted'},
+      { id: 'lead-04', firstName: 'Daniel', lastName: 'Rodriguez', email: 'd.rod@email.com', status: 'New'},
   ]
 };
 
