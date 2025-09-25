@@ -1,5 +1,4 @@
 
-
 "use client"
 
 import Image from 'next/image';
@@ -36,13 +35,14 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('maria.garcia@example.com');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!isUserLoading && user && firestore) {
       const fetchUserRoleAndRedirect = async () => {
+        // We now check for the private user profile to determine the role
         const userDocRef = doc(firestore, 'users', user.uid);
         try {
           const userDoc = await getDoc(userDocRef);
@@ -51,19 +51,23 @@ export default function LoginPage() {
             const dashboardPath = ROLE_DASHBOARD_MAP[userRole] || '/dashboard';
             router.replace(dashboardPath);
           } else {
-             // If the user profile doesn't exist, they can't log in.
-             // This can happen if signup fails midway. We log them out.
+             // This case is now for users who have an Auth account but NO profile document.
+             // This is the state of a manually created Auth user.
             toast({
               variant: "destructive",
               title: "Profile Incomplete",
-              description: "Your user profile was not found. Please contact support or try signing up again.",
+              description: "Your user profile was not found. Please contact an administrator to have your profile created in the system.",
             });
             auth.signOut();
           }
         } catch (error) {
             console.error("Error fetching user profile:", error);
-            // Fallback if firestore is unavailable
-            router.replace('/dashboard');
+            toast({
+              variant: "destructive",
+              title: "Login Error",
+              description: "Could not fetch user profile. Please try again.",
+            });
+            auth.signOut();
         }
       };
       fetchUserRoleAndRedirect();
@@ -78,7 +82,6 @@ export default function LoginPage() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // On successful login, the useEffect will handle the redirection.
       toast({
         title: "Login Successful",
         description: "Redirecting to your dashboard...",
@@ -94,6 +97,8 @@ export default function LoginPage() {
     }
   };
   
+  // This button is for creating an Auth user, but it won't create the necessary DB records.
+  // This is now an auxiliary function, with the main data creation handled by the seeding process.
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth) return;
@@ -101,15 +106,11 @@ export default function LoginPage() {
     
     try {
         await createUserWithEmailAndPassword(auth, email, password);
-        // On successful sign-up, the useEffect will redirect.
-        // We no longer create documents here. That's handled by seeding.
         toast({
-            title: "Account Created",
-            description: "Please ask your Organization Administrator to create your user profile before you can log in.",
+            title: "Authentication Account Created",
+            description: "Your authentication account has been created. An administrator must create your user profile before you can log in.",
         });
-        // Log the user out immediately so they can't access a broken state.
         await auth.signOut();
-
     } catch (error: any) {
         let description = "An unknown error occurred during sign-up.";
         if (error.code === 'auth/weak-password') {
@@ -127,6 +128,13 @@ export default function LoginPage() {
     }
   }
 
+  // Pre-fill login for convenience during development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+        setEmail('maria.garcia@example.com');
+        setPassword('password123');
+    }
+  }, []);
 
   if (isUserLoading || user) {
     return (

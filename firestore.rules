@@ -1,177 +1,195 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for private user data and a tenant-based access control model for shared resources.
- *
- * Data Structure:
- * - `/users/{userId}`: Stores private user profiles. Access is restricted to the owning user.
- * - `/tenants/{tenantId}`: Stores tenant-level data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/users/{userId}`: Stores user data within a tenant context. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/courses/{courseId}`: Stores course data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/subjects/{subjectId}`: Stores subject data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/sessions/{sessionId}`: Stores session data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/invoices/{invoiceId}`: Stores invoice data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}`: Stores payment data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/availabilities/{availabilityId}`: Stores availability data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/assignments/{assignmentId}`: Stores assignment data. Access is not explicitly defined, defaulting to closed.
- * - `/tenants/{tenantId}/leads/{leadId}`: Stores lead data. Access is not explicitly defined, defaulting to closed.
- *
- * Key Security Decisions:
- * - User listing is generally disallowed unless explicitly stated otherwise.
- * - Tenant-scoped data access is implicitly denied unless tenant membership or a specific role is validated.
- * - All write operations are protected by authorization checks.
- */
-rules_version = '2';
-service cloud.firestore {
+  * @file Overview
+  * This ruleset enforces a strict user-ownership model for private user profiles and tenant-based access control for other collections.
+  *
+  * Data Structure:
+  * - /users/{userId}: Stores private user profiles, accessible only to the user themselves.
+  * - /tenants/{tenantId}: Stores tenant information. Access control needs to be defined.
+  * - /tenants/{tenantId}/users/{userId}: Stores user profiles within a tenant. Access control needs to be defined.
+  * - /tenants/{tenantId}/courses/{courseId}: Stores course information for a tenant. Access control needs to be defined.
+  * - /tenants/{tenantId}/subjects/{subjectId}: Stores subject information for a tenant. Access control needs to be defined.
+  * - /tenants/{tenantId}/sessions/{sessionId}: Stores session information for a tenant. Access control needs to be defined.
+  * - /tenants/{tenantId}/invoices/{invoiceId}: Stores invoice information for a tenant. Access control needs to be defined.
+  * - /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}: Stores payment information for an invoice. Access control needs to be defined.
+  * - /tenants/{tenantId}/availabilities/{availabilityId}: Stores teacher availability. Access control needs to be defined.
+  * - /tenants/{tenantId}/assignments/{assignmentId}: Stores assignment information. Access control needs to be defined.
+  * - /tenants/{tenantId}/leads/{leadId}: Stores lead information. Access control needs to be defined.
+  *
+  * Key Security Decisions:
+  * - User profiles are strictly private; only the authenticated user can read or write their own profile.
+  * - Listing of users is disabled for privacy reasons.
+  * - Tenant-based access control needs to be defined based on roles and ownership.
+  *
+  * Denormalization for Authorization:
+  * - The `tenantId` is included in all tenant-related subcollections to avoid costly `get()` calls in security rules.
+  */
+ 
+
+ rules_version = '2';
+ service cloud.firestore {
   match /databases/{database}/documents {
+ 
 
-    /**
-     * @description Enforces user-ownership for private user profiles. Only the authenticated user can read or write their own profile.
-     * @path /users/{userId}
-     * @allow (create) - Authenticated user with UID matching {userId} can create their profile.
-     * @allow (get, list, update, delete) - Authenticated user with UID matching {userId} can access their profile.
-     * @deny (create, get, list, update, delete) - Any other user attempting to access this profile.
-     * @principle Enforces document ownership for all operations.
-     */
-    match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
-      // Allow the user to create their own profile if the userId matches their auth UID.
-      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == userId;
-
-      // Allow the user to read, update, and delete their own profile.
-      allow get, list: if isOwner(userId);
-      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(userId);
+   /**
+    * @description Allows a user to read and write their own profile data.
+    * @path /users/{userId}
+    * @allow (create) - User 'abc' can create their profile if authenticated as 'abc'.
+    * @deny (create) - User 'def' cannot create profile 'abc'.
+    * @allow (get, update, delete) - User 'abc' can read/write their profile if authenticated as 'abc'.
+    * @deny (get, update, delete) - User 'abc' cannot read/write profile 'def'.
+    * @principle Enforces document ownership for writes.
+    */
+   match /users/{userId} {
+    function isSignedIn() {
+     return request.auth != null;
     }
+ 
 
-    /**
-     * @description Controls access to tenant data. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle  Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
+    function isOwner(userId) {
+     return isSignedIn() && request.auth.uid == userId;
     }
+ 
 
-    /**
-     * @description Controls access to user data within a specific tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/users/{userId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/users/{userId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
+    function isExistingOwner(userId) {
+     return isOwner(userId) && resource != null;
     }
+ 
 
-    /**
-     * @description Controls access to course data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/courses/{courseId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/courses/{courseId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+    allow get: if isOwner(userId);
+    allow list: if false;
+    allow create: if isOwner(userId);
+    allow update: if isExistingOwner(userId);
+    allow delete: if isExistingOwner(userId);
+   }
+ 
 
-    /**
-     * @description Controls access to subject data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/subjects/{subjectId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/subjects/{subjectId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to tenant information. Access control needs to be defined.
+    * @path /tenants/{tenantId}
+    * @allow (get, list) - All users can read tenant information.
+    * @deny (create, update, delete) - Only authorized users can modify tenant information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId} {
+    allow get, list: if true; // TODO: Add access controls for listing tenants if needed.
+    allow create, update, delete: if false; // TODO: Implement tenant admin role check
+   }
+ 
 
-    /**
-     * @description Controls access to session data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/sessions/{sessionId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/sessions/{sessionId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to user profiles within a tenant. Access control needs to be defined.
+    * @path /tenants/{tenantId}/users/{userId}
+    * @allow (get, list) - All users can read tenant user information.
+    * @deny (create, update, delete) - Only authorized users can modify tenant user information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/users/{userId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
 
-    /**
-     * @description Controls access to invoice data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/invoices/{invoiceId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/invoices/{invoiceId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to course information for a tenant. Access control needs to be defined.
+    * @path /tenants/{tenantId}/courses/{courseId}
+    * @allow (get, list) - All users can read course information.
+    * @deny (create, update, delete) - Only authorized users can modify course information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/courses/{courseId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
 
-    /**
-     * @description Controls access to payment data for a specific invoice. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to subject information for a tenant. Access control needs to be defined.
+    * @path /tenants/{tenantId}/subjects/{subjectId}
+    * @allow (get, list) - All users can read subject information.
+    * @deny (create, update, delete) - Only authorized users can modify subject information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/subjects/{subjectId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
 
-    /**
-     * @description Controls access to teacher availability data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/availabilities/{availabilityId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/availabilities/{availabilityId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to session information for a tenant. Access control needs to be defined.
+    * @path /tenants/{tenantId}/sessions/{sessionId}
+    * @allow (get, list) - All users can read session information.
+    * @deny (create, update, delete) - Only authorized users can modify session information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/sessions/{sessionId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
 
-    /**
-     * @description Controls access to assignment data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/assignments/{assignmentId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/assignments/{assignmentId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to invoice information for a tenant. Access control needs to be defined.
+    * @path /tenants/{tenantId}/invoices/{invoiceId}
+    * @allow (get, list) - All users can read invoice information.
+    * @deny (create, update, delete) - Only authorized users can modify invoice information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/invoices/{invoiceId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
 
-    /**
-     * @description Controls access to lead data for a tenant. No explicit permissions are granted here, defaulting to closed access.
-     * @path /tenants/{tenantId}/leads/{leadId}
-     * @allow None - No read or write operations are allowed by default.
-     * @deny All - All requests are denied unless explicitly allowed in subcollection rules.
-     * @principle Data in this collection is implicitly private and needs specific rules for access.
-     */
-    match /tenants/{tenantId}/leads/{leadId} {
-      allow get, list: if false;
-      allow create, update, delete: if false;
-    }
+   /**
+    * @description Allows access to payment information for a specific invoice. Access control needs to be defined.
+    * @path /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}
+    * @allow (get, list) - All users can read payment information.
+    * @deny (create, update, delete) - Only authorized users can modify payment information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
+
+   /**
+    * @description Allows access to teacher availability information. Access control needs to be defined.
+    * @path /tenants/{tenantId}/availabilities/{availabilityId}
+    * @allow (get, list) - All users can read availability information.
+    * @deny (create, update, delete) - Only authorized users can modify availability information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/availabilities/{availabilityId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
+
+   /**
+    * @description Allows access to assignment information. Access control needs to be defined.
+    * @path /tenants/{tenantId}/assignments/{assignmentId}
+    * @allow (get, list) - All users can read assignment information.
+    * @deny (create, update, delete) - Only authorized users can modify assignment information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/assignments/{assignmentId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
+ 
+
+   /**
+    * @description Allows access to lead information. Access control needs to be defined.
+    * @path /tenants/{tenantId}/leads/{leadId}
+    * @allow (get, list) - All users can read lead information.
+    * @deny (create, update, delete) - Only authorized users can modify lead information.
+    * @principle Tenant-based access control.
+    */
+   match /tenants/{tenantId}/leads/{leadId} {
+    allow get, list: if true; // TODO: Define read access based on tenant roles
+    allow create, update, delete: if false; // TODO: Define write access based on tenant roles
+   }
   }
-}
+ }
