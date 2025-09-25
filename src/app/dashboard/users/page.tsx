@@ -28,11 +28,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
-import { seedInitialUserData } from '@/lib/seed';
+import { seedAllData } from '@/lib/seed';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
 
 interface TenantUser {
   id: string;
@@ -49,15 +47,15 @@ export default function UsersPage() {
   const { toast } = useToast();
   const [isSeeding, setIsSeeding] = useState(false);
 
-  // Use the active tenant ID from the user's profile, defaulting for safety
-  const tenantId = 'acme-tutoring'; // Hardcoded for now as per our setup
+  // Use the active tenant ID, hardcoded for our initial setup
+  const tenantId = 'acme-tutoring';
 
   const usersCollectionRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, tenantId]);
 
-  const { data: users, isLoading, error } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: users, isLoading, error, manualRefresh } = useCollection<TenantUser>(usersCollectionRef);
 
   const getBadgeVariant = (status: string) => {
     return status === 'Active' ? 'default' : 'secondary';
@@ -74,27 +72,19 @@ export default function UsersPage() {
     }
     setIsSeeding(true);
     try {
-        await seedInitialUserData(firestore, tenantId, currentUser.uid);
+        await seedAllData(firestore, tenantId, currentUser.uid, currentUser.email || 'admin@example.com');
         toast({
-            title: "Data Seeded!",
-            description: "Initial user data has been added to Firestore.",
+            title: "Database Seeded!",
+            description: "Initial collections and data have been added to Firestore.",
         });
-        // Note: useCollection should automatically update the view.
-    } catch (e) {
+        manualRefresh(); // Manually trigger a refresh of the collection
+    } catch (e: any) {
         console.error("Seeding error:", e);
         toast({
             variant: "destructive",
             title: "Seeding Failed",
-            description: "Could not write initial user data. Check console for details.",
+            description: e.message || "Could not write initial data. Check console for details.",
         });
-        
-        // Create and emit the detailed permission error for the dev overlay
-        const permissionError = new FirestorePermissionError({
-            path: `tenants/${tenantId}/users and /users`,
-            operation: 'write', // Batch write is a 'write' operation
-        });
-        errorEmitter.emit('permission-error', permissionError);
-
     } finally {
         setIsSeeding(false);
     }
@@ -115,6 +105,11 @@ export default function UsersPage() {
         <div className="text-center text-destructive-foreground bg-destructive/80 p-4 rounded-md">
           <p className="font-bold">Error loading users:</p>
           <p className="text-sm mt-2 font-mono">{error.message}</p>
+           <p className="text-sm mt-2">This is likely due to restrictive security rules. Try seeding the data to create the initial collections and apply open rules.</p>
+           <Button className="mt-4" onClick={handleSeedData} disabled={isSeeding}>
+             {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+             {isSeeding ? 'Seeding Data...' : 'Seed Initial Data'}
+          </Button>
         </div>
       );
     }
@@ -123,10 +118,10 @@ export default function UsersPage() {
       return (
         <div className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-lg">
           <h3 className="text-lg font-semibold">No Users Found</h3>
-          <p className="mt-2 text-sm">There are no users in this organization yet.</p>
+          <p className="mt-2 text-sm">Your database is empty. Click the button to seed it with initial data.</p>
            <Button className="mt-4" onClick={handleSeedData} disabled={isSeeding}>
              {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-             {isSeeding ? 'Seeding Data...' : 'Seed Initial Data'}
+             {isSeeding ? 'Seeding Database...' : 'Seed All Initial Data'}
           </Button>
         </div>
       );

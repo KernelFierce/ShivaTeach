@@ -1,81 +1,155 @@
 
 'use client';
 
-import { Firestore, doc, writeBatch } from 'firebase/firestore';
+import { Firestore, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 
-// Hardcoded initial data for seeding
-const initialUsers = [
-  {
-    id: 'teacher-01',
-    data: {
-      name: 'David Chen',
-      email: 'david.c@example.com',
-      role: 'Teacher',
-      status: 'Active',
-      joined: new Date().toLocaleDateString('en-US'),
-    }
-  },
-  {
-    id: 'student-01',
-    data: {
-      name: 'Alex Johnson',
-      email: 'alex.j@example.com',
-      role: 'Student',
-      status: 'Active',
-      joined: new Date().toLocaleDateString('en-US'),
-    }
-  },
-  {
-    id: 'parent-01',
-    data: {
-      name: 'Maria Johnson',
-      email: 'maria.j@example.com',
-      role: 'Parent',
-      status: 'Active',
-      joined: new Date().toLocaleDateString('en-US'),
-    }
-  },
-];
+const today = new Date().toLocaleDateString('en-US');
+
+const initialData = {
+  subjects: [
+    { id: 'subj-math', name: 'Mathematics', description: 'From basic algebra to advanced calculus.' },
+    { id: 'subj-sci', name: 'Science', description: 'Covering biology, chemistry, and physics.' },
+    { id: 'subj-eng', name: 'English', description: 'Literature, writing, and grammar.' },
+    { id: 'subj-hist', name: 'History', description: 'World history and social studies.' },
+  ],
+  courses: [
+    { id: 'course-alg1', subjectId: 'subj-math', name: 'Algebra I', hourlyRate: 45 },
+    { id: 'course-phy1', subjectId: 'subj-sci', name: 'Physics 101', hourlyRate: 50 },
+    { id: 'course-lit1', subjectId: 'subj-eng', name: 'American Literature', hourlyRate: 40 },
+  ],
+  users: [
+    {
+      id: 'teacher-01',
+      profile: {
+        displayName: 'David Chen',
+        email: 'david.c@example.com',
+        role: 'Teacher',
+        activeTenantId: 'acme-tutoring',
+      },
+      tenantProfile: {
+        name: 'David Chen',
+        email: 'david.c@example.com',
+        role: 'Teacher',
+        status: 'Active',
+        joined: today,
+      }
+    },
+    {
+      id: 'student-01',
+      profile: {
+        displayName: 'Alex Johnson',
+        email: 'alex.j@example.com',
+        role: 'Student',
+        activeTenantId: 'acme-tutoring',
+      },
+      tenantProfile: {
+        name: 'Alex Johnson',
+        email: 'alex.j@example.com',
+        role: 'Student',
+        status: 'Active',
+        joined: today,
+      }
+    },
+    {
+      id: 'parent-01',
+      profile: {
+        displayName: 'Maria Johnson',
+        email: 'maria.j@example.com',
+        role: 'Parent',
+        activeTenantId: 'acme-tutoring',
+      },
+      tenantProfile: {
+        name: 'Maria Johnson',
+        email: 'maria.j@example.com',
+        role: 'Parent',
+        status: 'Active',
+        joined: today,
+      }
+    },
+  ],
+  sessions: [
+    { id: 'sess-01', courseId: 'course-alg1', teacherId: 'teacher-01', studentId: 'student-01', startTime: '10:00 AM', status: 'Scheduled' },
+    { id: 'sess-02', courseId: 'course-phy1', teacherId: 'teacher-01', studentId: 'student-01', startTime: '2:00 PM', status: 'Completed' },
+  ],
+  leads: [
+      { id: 'lead-01', firstName: 'Jessica', lastName: 'Williams', email: 'j.williams@email.com', status: 'New'},
+      { id: 'lead-02', firstName: 'Michael', lastName: 'Brown', email: 'm.brown@email.com', status: 'Contacted'},
+  ]
+};
 
 /**
- * Seeds the database with an initial set of users for a given tenant.
- * Also creates the private user profile for the admin who initiates the seed.
+ * Seeds the database with a comprehensive set of initial data for a given tenant.
+ * Creates documents across all major collections.
  * @param firestore - The Firestore instance.
- * @param tenantId - The ID of the tenant to seed users for.
+ * @param tenantId - The ID of the tenant to seed data for.
  * @param adminUid - The UID of the currently logged-in admin user.
+ * @param adminEmail - The email of the currently logged-in admin user.
  */
-export async function seedInitialUserData(
+export async function seedAllData(
   firestore: Firestore,
   tenantId: string,
-  adminUid: string
+  adminUid: string,
+  adminEmail: string,
 ) {
   const batch = writeBatch(firestore);
 
-  // 1. Create the admin's private user profile document
+  // 1. Create the Tenant document itself
+  const tenantRef = doc(firestore, 'tenants', tenantId);
+  batch.set(tenantRef, { name: 'Acme Tutoring', description: 'Your premier tutoring service.' });
+
+  // 2. Create the admin's private user profile document
   const adminUserRef = doc(firestore, 'users', adminUid);
-  // We can get more admin data later, but for now role is essential
   batch.set(adminUserRef, {
-      role: "OrganizationAdmin",
-      displayName: "Admin User",
-      email: "admin@example.com",
+      role: 'OrganizationAdmin',
+      displayName: 'Admin User',
+      email: adminEmail,
       activeTenantId: tenantId,
   });
 
+  // 3. Create the admin's public profile within the tenant
   const adminTenantUserRef = doc(firestore, 'tenants', tenantId, 'users', adminUid);
   batch.set(adminTenantUserRef, {
-      name: "Admin User",
-      email: "admin@example.com",
-      role: "OrganizationAdmin",
-      status: "Active",
-      joined: new Date().toLocaleDateString('en-US'),
+      name: 'Admin User',
+      email: adminEmail,
+      role: 'OrganizationAdmin',
+      status: 'Active',
+      joined: today,
   });
 
-  // 2. Create the other initial users within the tenant
-  initialUsers.forEach(user => {
-    const userRef = doc(firestore, 'tenants', tenantId, 'users', user.id);
-    batch.set(userRef, user.data);
+  // 4. Create other users (teachers, students, parents)
+  initialData.users.forEach(user => {
+    // Private profile
+    const userRef = doc(firestore, 'users', user.id);
+    batch.set(userRef, user.profile);
+    // Public profile in tenant
+    const tenantUserRef = doc(firestore, 'tenants', tenantId, 'users', user.id);
+    batch.set(tenantUserRef, user.tenantProfile);
   });
 
-  // 3. Commit the batch
+  // 5. Create subjects
+  initialData.subjects.forEach(subject => {
+    const subjectRef = doc(firestore, 'tenants', tenantId, 'subjects', subject.id);
+    batch.set(subjectRef, subject);
+  });
+
+  // 6. Create courses
+  initialData.courses.forEach(course => {
+    const courseRef = doc(firestore, 'tenants', tenantId, 'courses', course.id);
+    batch.set(courseRef, course);
+  });
+
+  // 7. Create sessions
+  initialData.sessions.forEach(session => {
+    const sessionRef = doc(firestore, 'tenants', tenantId, 'sessions', session.id);
+    batch.set(sessionRef, session);
+  });
+
+  // 8. Create leads
+  initialData.leads.forEach(lead => {
+      const leadRef = doc(firestore, 'tenants', tenantId, 'leads', lead.id);
+      batch.set(leadRef, lead);
+  });
+  
+  // 9. Commit the entire batch
   await batch.commit();
 }

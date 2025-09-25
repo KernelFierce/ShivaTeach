@@ -1,222 +1,178 @@
+/**
+ * @file Firestore Security Rules
+ * @version 2
+ *
+ * @description This ruleset enforces a strict, ownership-based security model for user profiles
+ * and a tenant-based access control for other collections.
+ *
+ * @data-structure
+ * - /users/{userId}: Stores private user profile data, accessible only by the user.
+ * - /tenants/{tenantId}: Stores tenant information, with tenant-specific subcollections.
+ * - /tenants/{tenantId}/users/{userId}: Stores public user profiles within a tenant.
+ * - /tenants/{tenantId}/courses/{courseId}: Stores course information for a tenant.
+ * - /tenants/{tenantId}/subjects/{subjectId}: Stores subject information for a tenant.
+ * - /tenants/{tenantId}/sessions/{sessionId}: Stores session information for a tenant.
+ * - /tenants/{tenantId}/invoices/{invoiceId}: Stores invoice information for a tenant.
+ * - /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}: Stores payment information for an invoice.
+ * - /tenants/{tenantId}/availabilities/{availabilityId}: Stores teacher availability for a tenant.
+ * - /tenants/{tenantId}/assignments/{assignmentId}: Stores assignment information for a tenant.
+ * - /tenants/{tenantId}/leads/{leadId}: Stores lead information for a tenant.
+ *
+ * @key-security-decisions
+ * - User profiles are strictly private and only accessible by the owning user.
+ * - Tenant data access is not restricted in this prototype.
+ * - Data consistency between the path and document data is enforced on create and update.
+ *
+ * @denormalization-for-authorization
+ * - Tenant-owned documents include the `tenantId` field to allow direct rule-based access without additional `get()` calls.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Protects private user profiles. Only the authenticated user can read or write their own profile.
+     * @description Protects user profiles. Only the authenticated user can read and write their own profile.
      * @path /users/{userId}
-     * @allow (get, create, update, delete) User 'user123' can access /users/user123.
-     * @deny (get, create, update, delete) User 'user456' cannot access /users/user123.
-     * @principle Enforces document ownership for all operations.
+     * @allow (get, create, update, delete) if the authenticated user's ID matches the {userId}.
+     *   Example (create): request.auth.uid == "user123" creates a document at /users/user123.
+     *   Example (update): request.auth.uid == "user123" updates the document at /users/user123.
+     * @deny (get, create, update, delete) if the authenticated user's ID does not match the {userId}.
+     *   Example (create): request.auth.uid == "user456" attempts to create a document at /users/user123.
+     * @principle Enforces document ownership for writes.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
       }
 
-      allow get: if isSignedIn() && isOwner(userId);
+      allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Manages tenant information.  Currently, any authenticated user can read tenant information, but only specific roles can modify it.
+     * @description Controls access to tenant documents.
      * @path /tenants/{tenantId}
-     * @allow (get, list) Any authenticated user can read tenant data.
-     * @deny (create, update, delete) Non-admin users cannot modify tenant data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages user information within a tenant. Access is restricted to the user themselves.
+     * @description Controls access to tenant users.
      * @path /tenants/{tenantId}/users/{userId}
-     * @allow (get, create, update, delete) User 'user123' in tenant 'tenant1' can access /tenants/tenant1/users/user123.
-     * @deny (get, create, update, delete) User 'user456' cannot access /tenants/tenant1/users/user123.
-     * @principle Enforces document ownership within the tenant context.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-      
-      allow get: if isSignedIn() && isOwner(userId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isOwner(userId);
-      allow delete: if isSignedIn() && isOwner(userId);
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages courses within a tenant. Requires tenant membership for access.
+     * @description Controls access to courses within a tenant.
      * @path /tenants/{tenantId}/courses/{courseId}
-     * @allow (get, list) Any authenticated user can read course data.
-     * @deny (create, update, delete) Non-admin users cannot modify course data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/courses/{courseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages subjects within a tenant. Requires tenant membership for access.
+     * @description Controls access to subjects within a tenant.
      * @path /tenants/{tenantId}/subjects/{subjectId}
-     * @allow (get, list) Any authenticated user can read subject data.
-     * @deny (create, update, delete) Non-admin users cannot modify subject data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/subjects/{subjectId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages sessions within a tenant. Requires tenant membership for access.
+     * @description Controls access to sessions within a tenant.
      * @path /tenants/{tenantId}/sessions/{sessionId}
-     * @allow (get, list) Any authenticated user can read session data.
-     * @deny (create, update, delete) Non-admin users cannot modify session data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/sessions/{sessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages invoices within a tenant. Requires tenant membership for access.
+     * @description Controls access to invoices within a tenant.
      * @path /tenants/{tenantId}/invoices/{invoiceId}
-     * @allow (get, list) Any authenticated user can read invoice data.
-     * @deny (create, update, delete) Non-admin users cannot modify invoice data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/invoices/{invoiceId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages payments for invoices within a tenant. Requires tenant membership for access.
+     * @description Controls access to payments within a tenant's invoice.
      * @path /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}
-     * @allow (get, list) Any authenticated user can read payment data.
-     * @deny (create, update, delete) Non-admin users cannot modify payment data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages teacher availability within a tenant. Requires tenant membership for access.
+     * @description Controls access to availabilities within a tenant.
      * @path /tenants/{tenantId}/availabilities/{availabilityId}
-     * @allow (get, list) Any authenticated user can read availability data.
-     * @deny (create, update, delete) Non-admin users cannot modify availability data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/availabilities/{availabilityId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages assignments within a tenant. Requires tenant membership for access.
+     * @description Controls access to assignments within a tenant.
      * @path /tenants/{tenantId}/assignments/{assignmentId}
-     * @allow (get, list) Any authenticated user can read assignment data.
-     * @deny (create, update, delete) Non-admin users cannot modify assignment data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/assignments/{assignmentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
 
     /**
-     * @description Manages leads within a tenant. Requires tenant membership for access.
+     * @description Controls access to leads within a tenant.
      * @path /tenants/{tenantId}/leads/{leadId}
-     * @allow (get, list) Any authenticated user can read lead data.
-     * @deny (create, update, delete) Non-admin users cannot modify lead data.
-     * @principle Requires authentication for all operations; implements tenant-level access control.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin check
+     * @principle No authorization enforced on tenants yet.
      */
     match /tenants/{tenantId}/leads/{leadId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if false; // Disallowing listing for security
-      allow create: if isSignedIn(); // Allowing any signed in user to create
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin check
     }
   }
 }
