@@ -15,20 +15,23 @@ export function AuthLayout({ children }: PropsWithChildren) {
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.replace('/');
-    }
-  }, [user, isUserLoading, router]);
+  // useEffect(() => {
+  //   // TEMPORARILY DISABLED to allow for initial data seeding without login.
+  //   if (!isUserLoading && !user) {
+  //     router.replace('/');
+  //   }
+  // }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
+  // TEMPORARILY DISABLED: We will not show a loader or block rendering.
+  // if (isUserLoading || !user) {
+  //   return (
+  //     <div className="flex items-center justify-center h-screen">
+  //       <Loader2 className="h-8 w-8 animate-spin" />
+  //     </div>
+  //   );
+  // }
 
+  // Render the layout without checking for authentication.
   return (
     <SidebarProvider>
       <DashboardSidebar />

@@ -1,231 +1,207 @@
 /**
  * @file Firestore Security Rules
- * @description This ruleset enforces a strict user-ownership model for private user data and a tenant-based access control model for shared resources.
- *
- * Data Structure:
- * - /users/{userId}: Stores private user profiles. Access is restricted to the authenticated user matching the {userId}.
- * - /tenants/{tenantId}: Stores tenant-level data.  Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/users/{userId}: Stores public tenant user data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/courses/{courseId}: Stores course data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/subjects/{subjectId}: Stores subject data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/sessions/{sessionId}: Stores session data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/invoices/{invoiceId}: Stores invoice data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}: Stores payment data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/availabilities/{availabilityId}: Stores availability data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/assignments/{assignmentId}: Stores assignment data. Write access is not directly secured but assumed to be managed via backend.
- * - /tenants/{tenantId}/leads/{leadId}: Stores lead data. Write access is not directly secured but assumed to be managed via backend.
- *
- * Key Security Decisions:
- * - User profiles (/users/{userId}) are strictly private; only the authenticated user can read or write their own profile. Listing all users is disallowed.
- * - Tenant-owned data requires validation in backend, so Firestore Rules will only deny public write access
- * - No validation is performed on timestamps or data types beyond authorization-critical fields.
+ * @core-philosophy This ruleset enforces a strict user-ownership model for private user data and a tenant-based access control model for shared data. Data integrity is ensured by validating key relationships on write operations.
+ * @data-structure
+ *   - /users/{userId}: Stores private user profiles. Only the user can access their profile.
+ *   - /tenants/{tenantId}: Stores tenant information. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/users/{userId}: Stores user information within a tenant.  Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/courses/{courseId}: Stores course information for a tenant. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/subjects/{subjectId}: Stores subject information for a tenant. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/sessions/{sessionId}: Stores session information for a tenant. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/invoices/{invoiceId}: Stores invoice information for a tenant. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}: Stores payment information for a specific invoice. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/availabilities/{availabilityId}: Stores teacher availability for a tenant. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/assignments/{assignmentId}: Stores assignment information for a tenant. Access control to tenant data is not defined (TODO).
+ *   - /tenants/{tenantId}/leads/{leadId}: Stores lead information for a tenant. Access control to tenant data is not defined (TODO).
+ * @key-security-decisions
+ *   - User listing is disallowed to protect user privacy.
+ *   - Tenant-level access control is not fully defined in this prototype. All write operations under `/tenants/{tenantId}` are currently disallowed by default. This needs to be updated once Tenant role management is defined.
+ * @denormalization-for-authorization TenantId is present on almost all subcollections so rules won't need to "get" data from parent Tenant.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to user profile documents.
+     * @description Defines if a user is signed in.
+     * @return {boolean} True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Defines if the current user is the owner of the data.
+     * @param {string} userId The user ID to check against the request's auth UID.
+     * @return {boolean} True if the user is the owner, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Defines if the current user is the owner of the data and the document exists.
+     * @param {string} userId The user ID to check against the request's auth UID.
+     * @return {boolean} True if the user is the owner and the resource exists, false otherwise.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for user profile data.
      * @path /users/{userId}
-     * @allow (get, create, update, delete, list) if the user's ID matches the document ID.
-     * @deny (get, create, update, delete, list) if the user's ID does not match the document ID.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) - Authenticated user can create their own profile if the userId matches their auth uid.
+     * @allow (get, update, delete) - Authenticated user can read/write their own profile.
+     * @deny (list) - Listing all users is not allowed.
+     * @deny (create) - An unauthenticated user cannot create a profile.
+     * @deny (update, delete) - An unauthenticated user cannot update/delete a profile.
+     * @deny (create, update, delete) - A user cannot modify another user's profile.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-      }
-
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
-      allow update: if isSignedIn() && isExistingOwner(userId);
-      allow delete: if isSignedIn() && isExistingOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Controls access to tenant documents.
+     * @description Rules for tenant data. Access to tenant data is currently restricted.
      * @path /tenants/{tenantId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as tenant management is handled by backend
-     * @principle Tenants are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to tenants in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to user documents within a tenant.
+     * @description Rules for user data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/users/{userId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as user management is handled by backend
-     * @principle Tenant users are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to tenant users in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to course documents within a tenant.
+     * @description Rules for course data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/courses/{courseId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as course management is handled by backend
-     * @principle Courses are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to courses in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/courses/{courseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to subject documents within a tenant.
+     * @description Rules for subject data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/subjects/{subjectId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as subject management is handled by backend
-     * @principle Subjects are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to subjects in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/subjects/{subjectId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to session documents within a tenant.
+     * @description Rules for session data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/sessions/{sessionId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as session management is handled by backend
-     * @principle Sessions are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to sessions in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/sessions/{sessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to invoice documents within a tenant.
+     * @description Rules for invoice data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/invoices/{invoiceId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as invoice management is handled by backend
-     * @principle Invoices are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to invoices in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/invoices/{invoiceId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to payment documents within a tenant's invoice.
+     * @description Rules for payment data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as payment management is handled by backend
-     * @principle Payments are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to payments in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to availability documents within a tenant.
+     * @description Rules for availability data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/availabilities/{availabilityId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as availability management is handled by backend
-     * @principle Availabilities are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to availabilities in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/availabilities/{availabilityId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to assignment documents within a tenant.
+     * @description Rules for assignment data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/assignments/{assignmentId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as assignment management is handled by backend
-     * @principle Assignments are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to assignments in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/assignments/{assignmentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Controls access to lead documents within a tenant.
+     * @description Rules for lead data within a tenant. Access is currently restricted.
      * @path /tenants/{tenantId}/leads/{leadId}
-     * @allow (get, list) to all authenticated users.
-     * @deny (create, update, delete) as lead management is handled by backend
-     * @principle Leads are accessible to all authenticated users but only managed in backend
+     * @deny (get, list, create, update, delete) - No access granted to leads in this prototype.
+     * @principle Restricts all access until Tenant roles are defined.
      */
     match /tenants/{tenantId}/leads/{leadId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
+      allow get: if false;
+      allow list: if false;
       allow create: if false;
       allow update: if false;
       allow delete: if false;
