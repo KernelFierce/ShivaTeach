@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Loader2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Loader2, Info } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,6 +26,17 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from "@/components/ui/alert-dialog"
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { seedAllData } from '@/lib/seed';
@@ -105,11 +116,6 @@ export default function UsersPage() {
         <div className="text-center text-destructive-foreground bg-destructive/80 p-4 rounded-md">
           <p className="font-bold">Error loading users:</p>
           <p className="text-sm mt-2 font-mono">{error.message}</p>
-           <p className="text-sm mt-2">This is likely due to restrictive security rules. Try seeding the data to create the initial collections and apply open rules.</p>
-           <Button className="mt-4" onClick={handleSeedData} disabled={isSeeding}>
-             {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-             {isSeeding ? 'Seeding Data...' : 'Seed Initial Data'}
-          </Button>
         </div>
       );
     }
@@ -181,9 +187,32 @@ export default function UsersPage() {
             <CardTitle className="font-headline">User Management</CardTitle>
             <CardDescription>View, add, and manage all users in your organization.</CardDescription>
           </div>
-          <Button disabled={!users || users.length === 0}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add User
-          </Button>
+          <div className="flex items-center gap-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" disabled={isSeeding}>
+                  {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Info className="mr-2 h-4 w-4" />}
+                  {isSeeding ? 'Seeding...' : 'Seed Database'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will wipe all existing data and replace it with the initial sample dataset. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSeedData}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <Button disabled={isLoading || !!error}>
+              <PlusCircle className="mr-2 h-4 w-4" /> Add User
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
