@@ -27,8 +27,12 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
-
+import { collection, writeBatch } from 'firebase/firestore';
+import { seedInitialUserData } from '@/lib/seed';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 interface TenantUser {
   id: string;
@@ -42,21 +46,59 @@ interface TenantUser {
 export default function UsersPage() {
   const firestore = useFirestore();
   const { user: currentUser } = useUser();
+  const { toast } = useToast();
+  const [isSeeding, setIsSeeding] = useState(false);
 
   // Use the active tenant ID from the user's profile, defaulting for safety
-  const tenantId = currentUser?.photoURL || 'acme-tutoring';
+  const tenantId = 'acme-tutoring'; // Hardcoded for now as per our setup
 
   const usersCollectionRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, tenantId]);
 
-  const { data: users, isLoading, error } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: users, isLoading, error, manualRefresh } = useCollection<TenantUser>(usersCollectionRef);
 
   const getBadgeVariant = (status: string) => {
     return status === 'Active' ? 'default' : 'secondary';
   };
   
+  const handleSeedData = async () => {
+    if (!firestore || !currentUser) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Firestore is not available or you are not logged in."
+        });
+        return;
+    }
+    setIsSeeding(true);
+    try {
+        await seedInitialUserData(firestore, tenantId, currentUser.uid);
+        toast({
+            title: "Data Seeded!",
+            description: "Initial user data has been added to Firestore.",
+        });
+    } catch (e) {
+        console.error("Seeding error:", e);
+        toast({
+            variant: "destructive",
+            title: "Seeding Failed",
+            description: "Could not write initial user data. Check console for details.",
+        });
+        
+        // Create and emit the detailed permission error for the dev overlay
+        const permissionError = new FirestorePermissionError({
+            path: `tenants/${tenantId}/users and /users`,
+            operation: 'write', // Batch write is a 'write' operation
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
+    } finally {
+        setIsSeeding(false);
+    }
+  };
+
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -81,8 +123,9 @@ export default function UsersPage() {
         <div className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-lg">
           <h3 className="text-lg font-semibold">No Users Found</h3>
           <p className="mt-2 text-sm">There are no users in this organization yet.</p>
-           <Button className="mt-4">
-            <PlusCircle className="mr-2 h-4 w-4" /> Add First User
+           <Button className="mt-4" onClick={handleSeedData} disabled={isSeeding}>
+             {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+             {isSeeding ? 'Seeding Data...' : 'Seed Initial Data'}
           </Button>
         </div>
       );

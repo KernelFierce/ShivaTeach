@@ -36,19 +36,25 @@ export function AuthLayout({ children }: PropsWithChildren) {
     // Redirect based on role if they are on a mismatched page
     if (userProfile?.role) {
       const role = userProfile.role;
-      const expectedPath = `/dashboard/${role.toLowerCase().replace('admin', '')}`.replace(/\/$/, ""); // e.g., /dashboard/teacher
+
+      // Admins can see all top-level dashboard pages
+      if (role === 'OrganizationAdmin' || role === 'Admin') {
+        // No redirect needed for admins, they have full access to /dashboard/*
+        return;
+      }
+
+      // For other roles, redirect them to their specific dashboard
+      const roleDashboardMap: { [key: string]: string } = {
+        'Teacher': '/dashboard/teacher',
+        'Student': '/dashboard/student',
+        'Parent': '/dashboard/parent',
+        'SuperAdmin': '/dashboard/superadmin'
+      };
       
-      const isBasePath = pathname === '/dashboard';
-      const isCorrectRolePath = pathname.startsWith(expectedPath);
-      const isAdminOnDashboard = (role === 'OrganizationAdmin' || role === 'Admin') && isBasePath;
-      
-      // Allow admins on the root dashboard, otherwise redirect to their specific dashboard
-      if (!isCorrectRolePath && !isAdminOnDashboard) {
-        if (role === 'OrganizationAdmin' || role === 'Admin') {
-          router.replace('/dashboard');
-        } else {
-           router.replace(expectedPath);
-        }
+      const expectedPath = roleDashboardMap[role];
+
+      if (expectedPath && !pathname.startsWith(expectedPath)) {
+        router.replace(expectedPath);
       }
     }
 
