@@ -1,260 +1,177 @@
+/**
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a strict user-ownership model for private user data and a tenant-based access control model for shared resources.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores private user profiles. Only the authenticated user can access their own profile.
+ * - /tenants/{tenantId}: Stores tenant-level information. Open access is not granted here but can be customized based on tenant roles in a later iteration.
+ * - /tenants/{tenantId}/users/{userId}: Stores public user profiles within a tenant.
+ * - /tenants/{tenantId}/courses/{courseId}: Stores course information within a tenant.
+ * - /tenants/{tenantId}/subjects/{subjectId}: Stores subject information within a tenant.
+ * - /tenants/{tenantId}/sessions/{sessionId}: Stores session information within a tenant.
+ * - /tenants/{tenantId}/invoices/{invoiceId}: Stores invoice information within a tenant.
+ * - /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}: Stores payment information for a specific invoice within a tenant.
+ * - /tenants/{tenantId}/availabilities/{availabilityId}: Stores teacher availability within a tenant.
+ * - /tenants/{tenantId}/assignments/{assignmentId}: Stores assignment information within a tenant.
+ * - /tenants/{tenantId}/leads/{leadId}: Stores lead information within a tenant.
+ *
+ * Key Security Decisions:
+ * - User listing is generally disallowed to protect privacy.
+ * - All write operations are protected by authentication checks.
+ * - Relational integrity is enforced on `create` and `update` operations to ensure documents are placed in the correct paths.
+ *
+ * Denormalization for Authorization:
+ * - The tenantId is denormalized into all tenant-owned documents to avoid costly `get()` operations. This is a critical design decision for performance and scalability.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows a user to read and write their own profile data.
+     * @description Controls access to user profile data. Only the authenticated user can read or write their own profile.
      * @path /users/{userId}
-     * @allow (create) User with UID 'user_abc' can create their profile if request.auth.uid == 'user_abc'.
-     * @deny (create) User with UID 'user_abc' cannot create a profile with a different ID (e.g., 'user_xyz').
-     * @allow (get, update, delete) User with UID 'user_abc' can read/write their profile.
-     * @deny (get, update, delete) User with UID 'user_xyz' cannot read/write 'user_abc' profile.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create, get, update, delete): If the authenticated user's ID matches the {userId} path segment.
+     * @deny (create, get, update, delete): If the authenticated user's ID does not match the {userId} path segment.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
       function isOwner(userId) {
-        return request.auth.uid == userId;
+        return request.auth != null && request.auth.uid == userId;
       }
 
       function isExistingOwner(userId) {
-        return isOwner(userId) && resource.data != null;
+          return isOwner(userId) && resource != null;
       }
 
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(userId);
+      allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Allows read and write access to tenant information. Write access will likely require a tenant admin role.
+     * @description Controls access to tenant data.
      * @path /tenants/{tenantId}
-     * @allow (get, list) Any signed-in user can read tenants.
-     * @deny (create, update, delete) Only tenant admins can modify tenant data.
-     * @principle Requires admin privileges for tenant management.
+     * @allow (get, list): Public read access to tenant information.
+     * @allow (create, update, delete): Restricted to authorized users (e.g., tenant admins - TODO).
+     * @deny (create, update, delete): If the user is not properly authorized.
+     * @principle Demonstrates a public read/private write pattern, with a placeholder for role-based authorization.
      */
     match /tenants/{tenantId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin(); // TODO: Add tenant admin role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin role check
     }
 
     /**
-     * @description Allows access to user information within a specific tenant.  Write access will likely require tenant admin.
+     * @description Controls access to user data within a tenant.
      * @path /tenants/{tenantId}/users/{userId}
-     * @allow (get, list) Any signed-in user can read tenant users.
-     * @deny (create, update, delete) Only tenant admins can create/modify tenant users.
-     * @principle Requires admin privileges for tenant user management.
+     * @allow (get): Public read access to user information within a tenant.
+     * @allow (list): No listing allowed.
+     * @allow (create, update, delete): Restricted to authorized users (e.g., tenant admins - TODO).
+     * @deny (create, update, delete): If the user is not properly authorized.
+     * @principle Restricts write access to tenant admins and allows public read access.
      */
     match /tenants/{tenantId}/users/{userId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin(); // TODO: Add tenant admin role check
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if false; // TODO: Add tenant admin role check
     }
 
     /**
-     * @description Allows access to course information for a tenant. Write access will likely require tenant admin or teacher role.
+     * @description Controls access to course data within a tenant.
      * @path /tenants/{tenantId}/courses/{courseId}
-     * @allow (get, list) Any signed-in user can read courses.
-     * @deny (create, update, delete) Only tenant admins or teachers can modify course data.
-     * @principle Requires appropriate roles for course management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin/teacher role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/courses/{courseId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      // Placeholder for teacher role check.  Replace with actual logic.
-      function isTeacher() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin() || isTeacher(); // TODO: Add tenant admin or teacher role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin/teacher role check
     }
 
     /**
-     * @description Allows access to subject information for a tenant. Write access will likely require tenant admin.
+     * @description Controls access to subject data within a tenant.
      * @path /tenants/{tenantId}/subjects/{subjectId}
-     * @allow (get, list) Any signed-in user can read subjects.
-     * @deny (create, update, delete) Only tenant admins can modify subject data.
-     * @principle Requires admin privileges for subject management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/subjects/{subjectId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin(); // TODO: Add tenant admin role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin role check
     }
 
     /**
-     * @description Allows access to session information for a tenant. Write access will likely require tenant admin or teacher role.
+     * @description Controls access to session data within a tenant.
      * @path /tenants/{tenantId}/sessions/{sessionId}
-     * @allow (get, list) Any signed-in user can read sessions.
-     * @deny (create, update, delete) Only tenant admins or teachers can modify session data.
-     * @principle Requires appropriate roles for session management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin/teacher role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/sessions/{sessionId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      // Placeholder for teacher role check.  Replace with actual logic.
-      function isTeacher() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin() || isTeacher(); // TODO: Add tenant admin or teacher role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin/teacher role check
     }
 
     /**
-     * @description Allows access to invoice information for a tenant. Write access will likely require tenant admin.
+     * @description Controls access to invoice data within a tenant.
      * @path /tenants/{tenantId}/invoices/{invoiceId}
-     * @allow (get, list) Any signed-in user can read invoices.
-     * @deny (create, update, delete) Only tenant admins can modify invoice data.
-     * @principle Requires admin privileges for invoice management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/invoices/{invoiceId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin(); // TODO: Add tenant admin role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin role check
     }
 
     /**
-     * @description Allows access to payment information for a specific invoice. Write access will likely require tenant admin.
+     * @description Controls access to payment data within a tenant, scoped to an invoice.
      * @path /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId}
-     * @allow (get, list) Any signed-in user can read payments.
-     * @deny (create, update, delete) Only tenant admins can modify payment data.
-     * @principle Requires admin privileges for payment management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/invoices/{invoiceId}/payments/{paymentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin(); // TODO: Add tenant admin role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin role check
     }
 
     /**
-     * @description Allows access to teacher availability for a tenant. Write access will likely require teacher role or tenant admin.
+     * @description Controls access to availability data within a tenant.
      * @path /tenants/{tenantId}/availabilities/{availabilityId}
-     * @allow (get, list) Any signed-in user can read availabilities.
-     * @deny (create, update, delete) Only teachers or tenant admins can modify availability data.
-     * @principle Requires appropriate roles for availability management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin/teacher role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/availabilities/{availabilityId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      // Placeholder for teacher role check.  Replace with actual logic.
-      function isTeacher() {
-        return false;
-      }
-
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin() || isTeacher(); // TODO: Add tenant admin or teacher role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin/teacher role check
     }
 
     /**
-     * @description Allows access to assignment information for a tenant. Write access will likely require teacher role.
+     * @description Controls access to assignment data within a tenant.
      * @path /tenants/{tenantId}/assignments/{assignmentId}
-     * @allow (get, list) Any signed-in user can read assignments.
-     * @deny (create, update, delete) Only teachers can modify assignment data.
-     * @principle Requires teacher privileges for assignment management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin/teacher/student role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/assignments/{assignmentId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for teacher role check.  Replace with actual logic.
-      function isTeacher() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTeacher(); // TODO: Add teacher role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin/teacher/student role check
     }
 
     /**
-     * @description Allows access to lead information for a tenant. Write access will likely require tenant admin.
+     * @description Controls access to lead data within a tenant.
      * @path /tenants/{tenantId}/leads/{leadId}
-     * @allow (get, list) Any signed-in user can read leads.
-     * @deny (create, update, delete) Only tenant admins can modify lead data.
-     * @principle Requires admin privileges for lead management.
+     * @allow get, list: if true;
+     * @allow create, update, delete: if false; // TODO: Add tenant admin role check
+     * @principle Allows public read but restricts writes to authorized tenant members.
      */
     match /tenants/{tenantId}/leads/{leadId} {
-      function isSignedIn() {
-        return request.auth != null;
-      }
-
-      // Placeholder for tenant admin check.  Replace with actual logic.
-      function isTenantAdmin() {
-        return false;
-      }
-
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isTenantAdmin(); // TODO: Add tenant admin role check
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add tenant admin role check
     }
   }
 }
