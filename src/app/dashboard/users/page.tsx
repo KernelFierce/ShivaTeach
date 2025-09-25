@@ -27,7 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore, useUser, useMemoFirebase, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { seedInitialUserData } from '@/lib/seed';
 import { useToast } from '@/hooks/use-toast';
@@ -64,13 +64,24 @@ export default function UsersPage() {
         return;
     }
     setIsSeeding(true);
+    const tenantId = 'acme-tutoring';
     try {
-        await seedInitialUserData(firestore, 'acme-tutoring');
+        await seedInitialUserData(firestore, tenantId);
         toast({ title: 'Success!', description: 'Initial user data has been seeded.' });
         // The useCollection hook will automatically refresh the data.
     } catch (e: any) {
         console.error("Seeding failed:", e);
-        toast({ variant: 'destructive', title: 'Seeding Failed', description: e.message || 'Could not seed database.' });
+
+        // Create and emit the detailed permission error for the dev overlay
+        const permissionError = new FirestorePermissionError({
+            path: `tenants/${tenantId}/users and /users`,
+            operation: 'write', // Batch write is a 'write' operation
+            // In a real scenario, we might try to attach the data that was supposed to be written
+        });
+        errorEmitter.emit('permission-error', permissionError);
+
+        // Also show a user-friendly toast message
+        toast({ variant: 'destructive', title: 'Seeding Failed', description: 'Check the console for permission errors.' });
     } finally {
         setIsSeeding(false);
     }
