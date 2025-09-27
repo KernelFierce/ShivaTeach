@@ -54,6 +54,7 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/courses`);
     await clearCollection(db, `tenants/${TENANT_ID}/sessions`);
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
+    // Note: We need a more robust way to clear nested subcollections in the future
     
     console.log('Clearing root user and tenant collections...');
     await clearCollection(db, 'users');
@@ -169,7 +170,7 @@ export async function seedAllData() {
     });
 
     // 6. Create Sample Sessions
-    console.log('Creating sample sessions...');
+    console.log('Creating sample sessions and user-specific references...');
     const sessions = [
         // Today's sessions
         { startTime: Timestamp.fromDate(new Date(new Date().setHours(10, 0, 0, 0))), courseId: 'alg-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
@@ -179,9 +180,17 @@ export async function seedAllData() {
         { startTime: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), courseId: 'bio-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
     ];
 
-    sessions.forEach((session) => {
+    sessions.forEach((sessionData) => {
         const sessionRef = doc(collection(db, `tenants/${TENANT_ID}/sessions`));
-        batch.set(sessionRef, session);
+        batch.set(sessionRef, sessionData);
+
+        // Create reference for the student
+        const studentSessionRef = doc(collection(db, `tenants/${TENANT_ID}/users/${sessionData.studentId}/sessionsAsStudent`));
+        batch.set(studentSessionRef, { sessionId: sessionRef.id, startTime: sessionData.startTime });
+
+        // Create reference for the teacher
+        const teacherSessionRef = doc(collection(db, `tenants/${TENANT_ID}/users/${sessionData.teacherId}/sessionsAsTeacher`));
+        batch.set(teacherSessionRef, { sessionId: sessionRef.id, startTime: sessionData.startTime });
     });
 
 

@@ -27,13 +27,22 @@ import {
   where,
   orderBy,
   limit,
-  Timestamp
+  Timestamp,
+  doc,
+  getDoc
 } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { useEffect, useState } from "react";
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
+
+interface SessionRef {
+    id: string;
+    sessionId: string;
+    startTime: Timestamp;
+}
 
 interface Session {
     id: string;
@@ -58,16 +67,39 @@ export default function StudentDashboardPage() {
   const tenantId = 'acme-tutoring';
   const avatar = PlaceHolderImages.find(p => p.id === 'student-avatar');
 
-  const sessionsQueryRef = useMemoFirebase(() => {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+
+  const sessionRefsQueryRef = useMemoFirebase(() => {
     if (!firestore || !tenantId || !user) return null;
     return query(
-      collection(firestore, 'tenants', tenantId, 'sessions'),
-      where('studentId', '==', user.uid),
+      collection(firestore, `tenants/${tenantId}/users/${user.uid}/sessionsAsStudent`),
       where('startTime', '>=', new Date()),
       orderBy('startTime'),
       limit(5)
     );
   }, [firestore, tenantId, user]);
+
+  const { data: sessionRefs, isLoading: sessionRefsLoading } = useCollection<SessionRef>(sessionRefsQueryRef);
+
+  useEffect(() => {
+    async function fetchSessions() {
+        if (!sessionRefs || !firestore || !tenantId) return;
+
+        setSessionsLoading(true);
+        const sessionPromises = sessionRefs.map(ref => 
+            getDoc(doc(firestore, `tenants/${tenantId}/sessions`, ref.sessionId))
+        );
+        const sessionDocs = await Promise.all(sessionPromises);
+        const fetchedSessions = sessionDocs
+            .filter(docSnap => docSnap.exists())
+            .map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Session));
+        
+        setSessions(fetchedSessions);
+        setSessionsLoading(false);
+    }
+    fetchSessions();
+  }, [sessionRefs, firestore, tenantId])
 
   const coursesCollectionRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -79,14 +111,13 @@ export default function StudentDashboardPage() {
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, tenantId]);
   
-  const { data: sessions, isLoading: sessionsLoading } = useCollection<Session>(sessionsQueryRef);
   const { data: courses, isLoading: coursesLoading } = useCollection<Course>(coursesCollectionRef);
   const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
 
   const getCourseName = (courseId: string) => courses?.find(c => c.id === courseId)?.name || '...';
   const getUserName = (userId: string) => users?.find(u => u.id === userId)?.name || '...';
 
-  const isLoading = sessionsLoading || coursesLoading || usersLoading;
+  const isLoading = sessionsLoading || coursesLoading || usersLoading || sessionRefsLoading;
 
   return (
     <div className="flex flex-col gap-6">
