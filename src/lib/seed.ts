@@ -55,6 +55,7 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/sessions`);
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
     await clearCollection(db, `tenants/${TENANT_ID}/availabilities`);
+    await clearCollection(db, `tenants/${TENANT_ID}/assignments`);
     // Note: We need a more robust way to clear nested subcollections in the future
     
     console.log('Clearing root user and tenant collections...');
@@ -232,8 +233,36 @@ export async function seedAllData() {
         });
     });
 
+    // 9. Create Sample Assignments
+    console.log('Creating sample assignments...');
+    const assignments = [
+        { 
+            title: 'Algebra Homework 1', 
+            courseId: 'alg-1', 
+            studentId: student1.uid, 
+            dueDate: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
+        },
+        { 
+            title: 'Lab Report: Photosynthesis', 
+            courseId: 'bio-1', 
+            studentId: student2.uid, 
+            dueDate: Timestamp.fromDate(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)),
+        },
+        { 
+            title: 'Essay: The Roman Empire', 
+            courseId: 'wh-1', 
+            studentId: student1.uid, 
+            dueDate: Timestamp.fromDate(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)), // Overdue
+        },
+    ];
 
-    // 9. Commit all writes
+    assignments.forEach((assignment) => {
+        const assignmentRef = doc(collection(db, `tenants/${TENANT_ID}/assignments`));
+        batch.set(assignmentRef, assignment);
+    });
+
+
+    // 10. Commit all writes
     console.log('Committing all changes...');
     await batch.commit();
 

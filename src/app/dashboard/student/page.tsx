@@ -37,6 +37,8 @@ import { useEffect, useState } from "react";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface SessionRef {
     id: string;
@@ -59,6 +61,15 @@ interface Course {
 interface TenantUser {
     id: string;
     name: string;
+}
+
+interface Assignment {
+    id: string;
+    title: string;
+    courseId: string;
+    dueDate: Timestamp;
+    grade?: number;
+    submissionFileUrl?: string;
 }
 
 export default function StudentDashboardPage() {
@@ -84,7 +95,11 @@ export default function StudentDashboardPage() {
 
   useEffect(() => {
     async function fetchSessions() {
-        if (!sessionRefs || !firestore || !tenantId) return;
+        if (!sessionRefs || !firestore || !tenantId) {
+          setSessionsLoading(false);
+          setSessions([]);
+          return;
+        };
 
         setSessionsLoading(true);
         const sessionPromises = sessionRefs.map(ref => 
@@ -110,14 +125,46 @@ export default function StudentDashboardPage() {
     if (!firestore || !tenantId) return null;
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, tenantId]);
+
+  const assignmentsQueryRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId || !user) return null;
+    return query(
+      collection(firestore, `tenants/${tenantId}/assignments`),
+      where('studentId', '==', user.uid),
+      orderBy('dueDate')
+    );
+  }, [firestore, tenantId, user]);
   
   const { data: courses, isLoading: coursesLoading } = useCollection<Course>(coursesCollectionRef);
   const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: assignments, isLoading: assignmentsLoading } = useCollection<Assignment>(assignmentsQueryRef);
 
   const getCourseName = (courseId: string) => courses?.find(c => c.id === courseId)?.name || '...';
   const getUserName = (userId: string) => users?.find(u => u.id === userId)?.name || '...';
 
-  const isLoading = sessionsLoading || coursesLoading || usersLoading || sessionRefsLoading;
+  const getAssignmentStatus = (assignment: Assignment) => {
+    if (assignment.grade) return 'Graded';
+    if (assignment.submissionFileUrl) return 'Submitted';
+    if (assignment.dueDate.toDate() < new Date()) return 'Overdue';
+    return 'Pending';
+  }
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'Graded':
+        return 'default';
+      case 'Submitted':
+        return 'secondary';
+      case 'Pending':
+        return 'outline';
+      case 'Overdue':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  }
+
+  const isLoading = sessionsLoading || coursesLoading || usersLoading || sessionRefsLoading || assignmentsLoading;
 
   return (
     <div className="flex flex-col gap-6">
@@ -185,9 +232,43 @@ export default function StudentDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-             <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                <p className="text-muted-foreground">Assignments coming soon...</p>
-             </div>
+             {isLoading ? (
+                <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
+            ) : assignments && assignments.length > 0 ? (
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Due</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {assignments.map(assignment => {
+                        const status = getAssignmentStatus(assignment);
+                        return (
+                            <TableRow key={assignment.id}>
+                                <TableCell className="font-medium">{assignment.title}</TableCell>
+                                <TableCell>{format(assignment.dueDate.toDate(), 'MMM d')}</TableCell>
+                                <TableCell>
+                                    <Badge variant={getStatusBadgeVariant(status)}>{status}</Badge>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="outline" size="sm" disabled={status !== 'Pending'}>
+                                        Submit
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </TableBody>
+            </Table>
+             ) : (
+              <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                  <p className="text-muted-foreground text-center">No assignments found.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
