@@ -66,7 +66,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
     
     // Redirect logic for users with roles
     if (userProfile?.roles && userProfile.roles.length > 0) {
-      const userRoles = userProfile.roles;
+      const activeRole = userProfile.activeRole;
       const pathSegments = pathname.split('/').filter(Boolean);
       const currentBase = pathSegments[1] || '';
       
@@ -74,32 +74,30 @@ export function AuthLayout({ children }: PropsWithChildren) {
 
       // If on the root dashboard, find the highest priority role and redirect.
       if (isTryingToAccessRootDashboard) {
-        const priorityRole = ['SuperAdmin', 'OrganizationAdmin', 'Admin', 'Teacher', 'Student', 'Parent'].find(r => userRoles.includes(r as UserRole));
-        if (priorityRole) {
-          const expectedBase = roleDashboardMap[priorityRole as UserRole];
-          const targetPath = expectedBase ? `/dashboard/${expectedBase}` : '/dashboard';
-          if (pathname !== targetPath) {
-            router.replace(targetPath);
-            return;
-          }
+        const expectedBase = roleDashboardMap[activeRole];
+        const targetPath = expectedBase ? `/dashboard/${expectedBase}` : '/dashboard';
+        if (pathname !== targetPath) {
+          router.replace(targetPath);
+          return;
         }
       }
 
       // Check if the current path is allowed for any of the user's roles
+      // For now, we allow access if ANY of their roles grant it, but navigation is based on activeRole.
+      // This is a more permissive approach while the activeRole concept is settled.
+      const userRoles = userProfile.roles;
       const accessibleBases = Object.keys(allowedRolesForPath).filter(base => 
         allowedRolesForPath[base].some(allowedRole => userRoles.includes(allowedRole))
       );
       
-      const currentSubPage = pathSegments[2] || (pathSegments[1] === 'dashboard' ? '' : pathSegments[1]);
+      const currentSubPage = pathSegments.length > 2 ? pathSegments[2] : (currentBase !== 'dashboard' ? currentBase : '');
+
 
       if (!accessibleBases.includes(currentSubPage)) {
-         // If no access, redirect to their highest priority dashboard
-         const priorityRole = ['SuperAdmin', 'OrganizationAdmin', 'Admin', 'Teacher', 'Student', 'Parent'].find(r => userRoles.includes(r as UserRole));
-         if (priorityRole) {
-            const expectedBase = roleDashboardMap[priorityRole as UserRole];
-            const targetPath = expectedBase ? `/dashboard/${expectedBase}` : '/dashboard';
-            router.replace(targetPath);
-         }
+         // If no access, redirect to their active role's dashboard
+         const expectedBase = roleDashboardMap[activeRole];
+         const targetPath = expectedBase ? `/dashboard/${expectedBase}` : '/dashboard';
+         router.replace(targetPath);
       }
     }
 

@@ -83,6 +83,7 @@ export async function seedAllData() {
       email: string,
       name: string,
       roles: UserRole[],
+      activeRole: UserRole,
       tenantId: string | null = null,
       status: string = 'Active'
     ) => {
@@ -116,6 +117,7 @@ export async function seedAllData() {
         displayName: name,
         email: email,
         roles: roles,
+        activeRole: activeRole,
         activeTenantId: tenantId,
       });
 
@@ -132,13 +134,13 @@ export async function seedAllData() {
       return { uid, name, email, roles };
     };
 
-    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', ['SuperAdmin']);
-    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], TENANT_ID);
-    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], TENANT_ID);
-    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student'], TENANT_ID);
-    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], TENANT_ID);
-    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', ['Parent'], TENANT_ID);
-    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', ['Student'], TENANT_ID, 'Inactive');
+    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', ['SuperAdmin'], 'SuperAdmin');
+    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
+    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], 'Teacher', TENANT_ID);
+    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student'], 'Student', TENANT_ID);
+    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], 'Student', TENANT_ID);
+    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', ['Parent'], 'Parent', TENANT_ID);
+    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', ['Student'], 'Student', TENANT_ID, 'Inactive');
 
     // 5. Create Subjects and Courses
     console.log('Creating subjects and courses...');

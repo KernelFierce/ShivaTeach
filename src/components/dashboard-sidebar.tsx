@@ -20,9 +20,11 @@ import {
   BookUser,
   ShieldCheck,
   CalendarCheck,
+  Check,
+  ChevronsUpDown,
 } from "lucide-react"
 import { signOut } from "firebase/auth"
-import { doc } from "firebase/firestore"
+import { doc, updateDoc } from "firebase/firestore"
 
 import { useAuth, useUser, useFirestore, useDoc, useMemoFirebase } from "@/firebase"
 import {
@@ -43,6 +45,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu"
 import { Logo } from "@/components/logo"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
@@ -105,18 +111,19 @@ export function DashboardSidebar() {
     router.push('/');
   }
 
-  const userRoles = userProfile?.roles || [];
+  const handleRoleSwitch = async (newRole: UserRole) => {
+    if (userDocRef && userProfile && userProfile.activeRole !== newRole) {
+      await updateDoc(userDocRef, { activeRole: newRole });
+      // A full page reload is the most reliable way to ensure all components
+      // re-evaluate their data and permissions based on the new active role.
+      window.location.reload();
+    }
+  };
+
+  const activeRole = userProfile?.activeRole;
   
-  // Filter nav links based on the user's roles.
-  // Using a Set to ensure uniqueness.
-  const visibleNavLinks = Array.from(new Set(
-    navConfig.filter(link => userRoles.includes(link.role))
-      .map(link => JSON.stringify({ href: link.href, icon: link.icon, label: link.label }))
-  )).map(item => {
-    const parsed = JSON.parse(item);
-    const Icon = navConfig.find(l => l.label === parsed.label)?.icon; // Get back the component
-    return { ...parsed, icon: Icon };
-  });
+  // Filter nav links based on the user's active role.
+  const visibleNavLinks = navConfig.filter(link => link.role === activeRole);
 
   const userName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
@@ -138,7 +145,7 @@ export function DashboardSidebar() {
       <SidebarMenuItem key={item.label}>
         <Link href={item.href}>
           <SidebarMenuButton
-            isActive={pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard')}
+            isActive={pathname === item.href || (pathname.startsWith(item.href) && item.href !== '/dashboard' && item.href !== '/dashboard/teacher' && item.href !== '/dashboard/student')}
             icon={item.icon ? <item.icon /> : null}
             tooltip={item.label}
           >
@@ -148,6 +155,8 @@ export function DashboardSidebar() {
       </SidebarMenuItem>
     ))
   }
+
+  const userHasMultipleRoles = userProfile && userProfile.roles.length > 1;
 
   return (
     <Sidebar>
@@ -161,7 +170,7 @@ export function DashboardSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className="flex flex-col gap-2">
-            { (userRoles.includes('OrganizationAdmin') || userRoles.includes('Admin')) && (
+            { (activeRole === 'OrganizationAdmin' || activeRole === 'Admin') && (
                  <SidebarMenu>
                     <SidebarMenuItem>
                         <Link href="/dashboard/settings">
@@ -199,6 +208,26 @@ export function DashboardSidebar() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {userHasMultipleRoles && userProfile && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <ChevronsUpDown className="mr-2 h-4 w-4" />
+                      <span>Switch Role</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuLabel>Viewing as {activeRole}</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {userProfile.roles.map(role => (
+                           <DropdownMenuItem key={role} onClick={() => handleRoleSwitch(role)}>
+                            <Check className={`mr-2 h-4 w-4 ${activeRole === role ? 'opacity-100' : 'opacity-0'}`} />
+                            {role}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                )}
                 <DropdownMenuItem>
                   <Users className="mr-2 h-4 w-4" />
                   <span>Profile</span>
