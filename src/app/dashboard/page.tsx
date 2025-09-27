@@ -1,3 +1,6 @@
+
+'use client';
+
 import {
   Card,
   CardContent,
@@ -18,17 +21,53 @@ import {
   CalendarCheck,
   Briefcase,
   DollarSign,
-  LineChart
+  LineChart,
+  Loader2
 } from "lucide-react"
+import { collection, query, where, getCountFromServer } from "firebase/firestore";
 
-import { user, upcomingSessions, studentStats, financialData } from "@/lib/mock-data"
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { FinancialChart } from "./financial-chart"
+import { financialData, upcomingSessions } from "@/lib/mock-data" // Keep some mock data for now
+
+interface TenantUser {
+  id: string;
+  status: string;
+}
+
+interface Lead {
+    id: string;
+    status: string;
+}
 
 export default function DashboardPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const tenantId = 'acme-tutoring'; // This should be dynamic in a real multi-tenant app
+
+  const usersCollectionRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, 'tenants', tenantId, 'users');
+  }, [firestore, tenantId]);
+
+  const leadsCollectionRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, 'tenants', tenantId, 'leads');
+  }, [firestore, tenantId]);
+
+  const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsCollectionRef);
+
+  const totalStudents = users ? users.length : 0;
+  const activeStudents = users ? users.filter(u => u.status === 'Active').length : 0;
+  const totalLeads = leads ? leads.length : 0;
+
+  const isLoading = usersLoading || leadsLoading;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-3xl font-bold font-headline">Welcome back, {user.name.split(' ')[0]}!</h1>
+        <h1 className="text-3xl font-bold font-headline">Welcome back, {user?.displayName || user?.email?.split('@')[0]}!</h1>
         <p className="text-muted-foreground">Here's a summary of your organization's activity.</p>
       </div>
 
@@ -39,7 +78,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{studentStats.total}</div>
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{totalStudents}</div>}
             <p className="text-xs text-muted-foreground">
               Across all programs
             </p>
@@ -51,7 +90,7 @@ export default function DashboardPage() {
             <CalendarCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{studentStats.active}</div>
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{activeStudents}</div>}
             <p className="text-xs text-muted-foreground">
               Currently enrolled
             </p>
@@ -63,7 +102,7 @@ export default function DashboardPage() {
             <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{studentStats.leads}</div>
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{totalLeads}</div>}
             <p className="text-xs text-muted-foreground">
               Potential new students
             </p>
@@ -77,7 +116,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">${financialData[financialData.length - 1].revenue.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              For the current month
+              For the current month (mock)
             </p>
           </CardContent>
         </Card>
@@ -91,7 +130,7 @@ export default function DashboardPage() {
               Financial Overview
             </CardTitle>
             <CardDescription>
-              Monthly revenue and expenses overview.
+              Monthly revenue and expenses overview (mock data).
             </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
@@ -102,7 +141,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="font-headline">Upcoming Sessions</CardTitle>
             <CardDescription>
-              Here are the next few sessions on the schedule.
+              Here are the next few sessions on the schedule (mock data).
             </CardDescription>
           </CardHeader>
           <CardContent>

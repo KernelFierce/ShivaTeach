@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MoreHorizontal, PlusCircle, Loader2, Info } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Loader2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -26,22 +26,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-  } from "@/components/ui/alert-dialog"
-import { useCollection, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection } from 'firebase/firestore';
-import { seedAllData } from '@/lib/seed';
-import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useMemoFirebase } from '@/firebase/provider';
 
 interface TenantUser {
   id: string;
@@ -54,51 +41,17 @@ interface TenantUser {
 
 export default function UsersPage() {
   const firestore = useFirestore();
-  const { user: currentUser } = useUser();
-  const { toast } = useToast();
-  const [isSeeding, setIsSeeding] = useState(false);
-
-  // Use the active tenant ID, hardcoded for our initial setup
-  const tenantId = 'acme-tutoring';
+  const tenantId = 'acme-tutoring'; // This should be dynamic in a real multi-tenant app
 
   const usersCollectionRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
     return collection(firestore, 'tenants', tenantId, 'users');
   }, [firestore, tenantId]);
 
-  const { data: users, isLoading, error, manualRefresh } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: users, isLoading, error } = useCollection<TenantUser>(usersCollectionRef);
 
   const getBadgeVariant = (status: string) => {
     return status === 'Active' ? 'default' : 'secondary';
-  };
-  
-  const handleSeedData = async () => {
-    if (!firestore || !currentUser) {
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Firestore is not available or you are not logged in."
-        });
-        return;
-    }
-    setIsSeeding(true);
-    try {
-        await seedAllData(firestore, tenantId, currentUser.uid, currentUser.email || 'admin@example.com');
-        toast({
-            title: "Database Seeded!",
-            description: "Initial collections and data have been added to Firestore.",
-        });
-        manualRefresh(); // Manually trigger a refresh of the collection
-    } catch (e: any) {
-        console.error("Seeding error:", e);
-        toast({
-            variant: "destructive",
-            title: "Seeding Failed",
-            description: e.message || "Could not write initial data. Check console for details.",
-        });
-    } finally {
-        setIsSeeding(false);
-    }
   };
 
   const renderContent = () => {
@@ -112,36 +65,34 @@ export default function UsersPage() {
     }
 
     if (error) {
-       return (
+      return (
         <div className="text-center text-destructive-foreground bg-destructive/80 p-4 rounded-md">
           <p className="font-bold">Error loading users:</p>
           <p className="text-sm mt-2 font-mono">{error.message}</p>
         </div>
       );
     }
-    
+
     if (!users || users.length === 0) {
       return (
         <div className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-lg">
           <h3 className="text-lg font-semibold">No Users Found</h3>
-          <p className="mt-2 text-sm">Your database is empty. Click the button to seed it with initial data.</p>
-           <Button className="mt-4" onClick={handleSeedData} disabled={isSeeding}>
-             {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-             {isSeeding ? 'Seeding Database...' : 'Seed All Initial Data'}
-          </Button>
+          <p className="mt-2 text-sm">Your organization doesn't have any users yet.</p>
         </div>
       );
     }
 
     return (
-       <Table>
+      <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead className="hidden sm:table-cell">Role</TableHead>
             <TableHead className="hidden sm:table-cell">Status</TableHead>
             <TableHead className="hidden md:table-cell">Joined Date</TableHead>
-            <TableHead><span className="sr-only">Actions</span></TableHead>
+            <TableHead>
+              <span className="sr-only">Actions</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -187,37 +138,12 @@ export default function UsersPage() {
             <CardTitle className="font-headline">User Management</CardTitle>
             <CardDescription>View, add, and manage all users in your organization.</CardDescription>
           </div>
-          <div className="flex items-center gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" disabled={isSeeding}>
-                  {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Info className="mr-2 h-4 w-4" />}
-                  {isSeeding ? 'Seeding...' : 'Seed Database'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will wipe all existing data and replace it with the initial sample dataset. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleSeedData}>Continue</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-
-            <Button disabled={isLoading || !!error}>
-              <PlusCircle className="mr-2 h-4 w-4" /> Add User
-            </Button>
-          </div>
+          <Button disabled={isLoading || !!error}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add User
+          </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        {renderContent()}
-      </CardContent>
+      <CardContent>{renderContent()}</CardContent>
     </Card>
   );
 }
