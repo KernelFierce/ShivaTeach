@@ -58,6 +58,13 @@ export async function seedAllData() {
         await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/assignments`);
     }
 
+    const conversationDocs = await getDocs(collection(db, `tenants/${TENANT_ID}/conversations`));
+    for (const convoDoc of conversationDocs.docs) {
+        await clearCollection(db, `tenants/${TENANT_ID}/conversations/${convoDoc.id}/messages`);
+    }
+    await clearCollection(db, `tenants/${TENANT_ID}/conversations`);
+
+
     await clearCollection(db, `tenants/${TENANT_ID}/users`);
     await clearCollection(db, `tenants/${TENANT_ID}/subjects`);
     await clearCollection(db, `tenants/${TENANT_ID}/courses`);
@@ -149,7 +156,7 @@ export async function seedAllData() {
     const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
     const ankur = await createUser('ankur@kakkar.com', 'Ankur Kakkar', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
     const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], 'Teacher', TENANT_ID);
-    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student'], 'Student', TENANT_ID);
+    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student', 'Parent'], 'Student', TENANT_ID);
     const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], 'Student', TENANT_ID);
     const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', ['Parent'], 'Parent', TENANT_ID);
     const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', ['Student'], 'Student', TENANT_ID, 'Inactive');
@@ -306,8 +313,55 @@ export async function seedAllData() {
         method: 'Credit Card',
     });
 
+    // 11. Create Sample Conversations and Messages
+    console.log('Creating sample conversations and messages...');
+    const convo1Ref = doc(collection(db, `tenants/${TENANT_ID}/conversations`));
+    const convo2Ref = doc(collection(db, `tenants/${TENANT_ID}/conversations`));
+    
+    const convo1LastMessage = "Oh, that's what I was missing! Thanks for the help with the algebra homework! I finally get it.";
+    const convo2LastMessage = "Just wanted to confirm Alex's session time for next week.";
 
-    // 11. Commit all writes
+    batch.set(convo1Ref, {
+        participantIds: [teacher.uid, student1.uid],
+        participantNames: {
+            [teacher.uid]: teacher.name,
+            [student1.uid]: student1.name
+        },
+        participantAvatars: {
+            [teacher.uid]: 'avatar-2',
+            [student1.uid]: 'student-avatar'
+        },
+        lastMessageText: convo1LastMessage,
+        lastMessageTimestamp: Timestamp.now(),
+    });
+
+    batch.set(convo2Ref, {
+        participantIds: [teacher.uid, parent.uid],
+        participantNames: {
+            [teacher.uid]: teacher.name,
+            [parent.uid]: parent.name
+        },
+        participantAvatars: {
+            [teacher.uid]: 'avatar-2',
+            [parent.uid]: 'avatar-3'
+        },
+        lastMessageText: convo2LastMessage,
+        lastMessageTimestamp: Timestamp.fromDate(new Date(Date.now() - 3600 * 1000)), // 1 hour ago
+    });
+
+    // Messages for convo 1
+    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: student1.uid, text: "Hi Mr. Chen, I'm having trouble with question 5 on the homework.", timestamp: Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 1000))});
+    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: teacher.uid, text: 'Hi Alex. No problem. Can you show me what you have so far?', timestamp: Timestamp.fromDate(new Date(Date.now() - 8 * 60 * 1000)) });
+    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: student1.uid, text: 'I tried to solve for x but I keep getting a negative number.', timestamp: Timestamp.fromDate(new Date(Date.now() - 5 * 60 * 1000)) });
+    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: teacher.uid, text: "Ah, I see. Remember to distribute the negative sign to both terms inside the parentheses. That's a common mistake.", timestamp: Timestamp.fromDate(new Date(Date.now() - 2 * 60 * 1000)) });
+    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: student1.uid, text: convo1LastMessage, timestamp: Timestamp.now() });
+
+    // Messages for convo 2
+    batch.set(doc(collection(db, convo2Ref.path, 'messages')), { senderId: parent.uid, text: "Hello David, this is Carol Johnson.", timestamp: Timestamp.fromDate(new Date(Date.now() - 3601 * 1000)) });
+    batch.set(doc(collection(db, convo2Ref.path, 'messages')), { senderId: parent.uid, text: convo2LastMessage, timestamp: Timestamp.fromDate(new Date(Date.now() - 3600 * 1000)) });
+
+
+    // 12. Commit all writes
     console.log('Committing all changes...');
     await batch.commit();
 

@@ -33,6 +33,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { summarizeText } from "@/ai/flows/summarize-text-flow";
+import { FinancialChart } from "../financial-chart";
 
 interface TenantUser {
   id: string;
@@ -58,6 +59,15 @@ interface Course {
     id: string;
     name: string;
 }
+
+const financialData = [
+  { month: "January", revenue: 1860, expenses: 800 },
+  { month: "February", revenue: 3050, expenses: 1200 },
+  { month: "March", revenue: 2370, expenses: 1000 },
+  { month: "April", revenue: 730, expenses: 500 },
+  { month: "May", revenue: 2090, expenses: 950 },
+  { month: "June", revenue: 2140, expenses: 1100 },
+]
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -205,13 +215,11 @@ export default function DashboardPage() {
               Financial Overview
             </CardTitle>
             <CardDescription>
-              Monthly revenue and expenses will be displayed here once invoicing is set up.
+              A sample of monthly revenue and expenses.
             </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
-             <div className="flex items-center justify-center h-60 border-2 border-dashed rounded-lg">
-                <p className="text-muted-foreground">Financial chart coming soon...</p>
-             </div>
+             <FinancialChart data={financialData} />
           </CardContent>
         </Card>
         <Card className="lg:col-span-3">
