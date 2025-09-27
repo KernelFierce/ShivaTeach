@@ -30,19 +30,16 @@ import {
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { AddUserDialog } from './add-user-dialog';
+import { EditUserDialog } from './edit-user-dialog';
+import type { TenantUser } from '@/types/tenant-user';
 
-interface TenantUser {
-  id: string;
-  name: string;
-  email: string;
-  roles: string[];
-  status: string;
-  joined: string;
-}
 
 export default function UsersPage() {
   const firestore = useFirestore();
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isEditUserOpen, setIsEditUserOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<TenantUser | null>(null);
+
   const tenantId = 'acme-tutoring'; // This should be dynamic in a real multi-tenant app
 
   const usersCollectionRef = useMemoFirebase(() => {
@@ -51,6 +48,11 @@ export default function UsersPage() {
   }, [firestore, tenantId]);
 
   const { data: users, isLoading, error } = useCollection<TenantUser>(usersCollectionRef);
+
+  const handleEditClick = (user: TenantUser) => {
+    setSelectedUser(user);
+    setIsEditUserOpen(true);
+  }
 
   const getBadgeVariant = (status: string) => {
     return status === 'Active' ? 'default' : 'secondary';
@@ -123,7 +125,7 @@ export default function UsersPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem>Edit</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleEditClick(user)}>Edit</DropdownMenuItem>
                     <DropdownMenuItem>View Details</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -142,6 +144,14 @@ export default function UsersPage() {
         onOpenChange={setIsAddUserOpen}
         tenantId={tenantId}
       />
+      {selectedUser && (
+        <EditUserDialog
+          isOpen={isEditUserOpen}
+          onOpenChange={setIsEditUserOpen}
+          tenantId={tenantId}
+          user={selectedUser}
+        />
+      )}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
