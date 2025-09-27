@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import {
   Card,
   CardContent,
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
+import { AddUserDialog } from './add-user-dialog';
 
 interface TenantUser {
   id: string;
@@ -40,6 +42,7 @@ interface TenantUser {
 
 export default function UsersPage() {
   const firestore = useFirestore();
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const tenantId = 'acme-tutoring'; // This should be dynamic in a real multi-tenant app
 
   const usersCollectionRef = useMemoFirebase(() => {
@@ -133,19 +136,29 @@ export default function UsersPage() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="font-headline">User Management</CardTitle>
-            <CardDescription>View, add, and manage all users in your organization.</CardDescription>
+    <>
+      <AddUserDialog
+        isOpen={isAddUserOpen}
+        onOpenChange={setIsAddUserOpen}
+        tenantId={tenantId}
+      />
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="font-headline">User Management</CardTitle>
+              <CardDescription>View, add, and manage all users in your organization.</CardDescription>
+            </div>
+            <Button
+              disabled={isLoading || !!error}
+              onClick={() => setIsAddUserOpen(true)}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add User
+            </Button>
           </div>
-          <Button disabled={isLoading || !!error}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add User
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>{renderContent()}</CardContent>
-    </Card>
+        </CardHeader>
+        <CardContent>{renderContent()}</CardContent>
+      </Card>
+    </>
   );
 }
