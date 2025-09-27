@@ -33,7 +33,7 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { summarizeText } from "@/ai/flows/summarize-text-flow";
-import { FinancialChart } from "../financial-chart";
+import { FinancialChart } from "./financial-chart";
 
 interface TenantUser {
   id: string;
