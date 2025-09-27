@@ -110,61 +110,54 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
 
 We will build the application iteratively, focusing on one user role at a time. Each "sprint" will deliver the core pages and UI for a specific role.
 
-### Sprint 0: Foundation & Setup (Complete)
+### Sprint 0: Foundation & Live Data (Complete)
 - **Status**: ✅ Done
-- **Objective**: Establish the core project structure, UI framework, and initial static pages.
+- **Objective**: Establish the core project structure, UI framework, authentication, security, and connect initial pages to a live, seeded Firestore database.
+- **Key Outcomes**:
+    - Project setup with Next.js, ShadCN, and Tailwind.
+    - Full implementation of Firebase email/password authentication.
+    - Protected routes for the entire `/dashboard` area.
+    - Role-based navigation and redirects.
+    - Firestore database seeded with a comprehensive set of sample data.
+    - Main Dashboard, User Management, and Lead Management pages are connected to and display live data from Firestore.
+    - Secure, multi-tenant Firestore security rules are in place.
 
-### Sprint 1: OrganizationAdmin
-- **Status**: ⏳ To Do
-- **Objective**: Build the core management features for the organization owner.
+### Sprint 1: OrganizationAdmin Core Functionality
+- **Status**: ⏳ In Progress
+- **Objective**: Build the essential management features for the organization owner, enabling them to configure their business and manage users and courses.
 - **Features**:
-    1.  **Organization Settings Page**: Create the UI for managing billing policies and default rates.
-    2.  **User Management Page**: Build the UI to view, add, and edit users (`Admin`, `Teacher`, `Student`, `Parent`).
-    3.  **Course Management Page**: Create a page to define subjects and courses.
-    4.  **Dashboard View**: Tailor the existing dashboard to show organization-wide metrics.
+    1.  **Activate Settings Page**: Connect the Organization Settings UI to Firestore to allow fetching and updating of billing policies, default rates, etc.
+    2.  **Implement "Add User"**: Build the "Add User" feature, including a form dialog, creation of the user in Firebase Auth, and creation of user documents in Firestore.
+    3.  **Build Course Management UI**: Create the interface for viewing, adding, and managing subjects and courses within the organization.
+    4.  **Implement "Edit User"**: Add the ability to edit a user's role and status.
 
-### Sprint 2: Teacher
+### Sprint 2: Teacher Enablement
 - **Status**: ⏳ To Do
-- **Objective**: Create the tools tutors need to manage their work.
+- **Objective**: Create the tools tutors need to manage their daily work and interact with students.
 - **Features**:
-    1.  **Teacher Dashboard**: A personalized view showing "Today's Agenda" and assigned students.
-    2.  **Availability Page**: A UI planner for teachers to set their weekly availability and overrides.
-    3.  **Lesson & Grading Page**: UI to create lesson plans and view student submissions.
-    4.  **Communication Interface**: A basic messaging UI for communicating with students and parents.
+    1.  **Live Teacher Dashboard**: Connect the Teacher Dashboard to live data to show a personalized view of their actual students and upcoming agenda.
+    2.  **Availability Management**: Build the UI planner for teachers to set their weekly availability and manage one-off overrides. This data will be stored in Firestore.
+    3.  **Communication Interface**: Implement a basic messaging UI for teachers to communicate with students and parents.
 
-### Sprint 3: Student
+### Sprint 3: Student Experience
 - **Status**: ⏳ To Do
 - **Objective**: Build the student-facing academic portal.
 - **Features**:
-    1.  **Student Dashboard**: A simplified view of their schedule and upcoming assignments.
-    2.  **Assignment Submission Page**: A page to view assignment details and upload files.
-    3.  **"Smart Reschedule" Request UI**: A planner view for students to request new session times.
+    1.  **Live Student Dashboard**: Connect the Student Dashboard to live data, showing their actual schedule and assignments.
+    2.  **Assignment Submission Page**: Create a page where students can view assignment details and upload their work. This will require integrating Firebase Storage.
+    3.  **"Smart Reschedule" Request**: Build the UI for students to request new session times from their teacher.
 
-### Sprint 4: Parent
+### Sprint 4: Parent Portal
 - **Status**: ⏳ To Do
-- **Objective**: Create the parent portal for financial and academic oversight.
+- **Objective**: Create the portal for parents to manage financials and monitor academic progress.
 - **Features**:
-    1.  **Parent Dashboard**: A portal to view/pay invoices, manage credit balance, and see transaction history.
-    2.  **Child View**: A read-only view of their child's schedule, grades, and attendance.
-    3.  **Communication View**: A unified inbox to see supervised conversations and message teachers directly.
+    1.  **Parent Dashboard & Financials**: Build the UI for parents to view and pay invoices and see transaction history.
+    2.  **Child Oversight**: Create the read-only view of their child's schedule, grades, and attendance.
 
-### Sprint 5: Admin
-- **Status**: ⏳ To Do
-- **Objective**: Build the operational "Command Center" for day-to-day tasks.
-- **Features**:
-    1.  **Master Schedule Page**: A comprehensive schedule viewer for all organization sessions.
-    2.  **Lead Management Page**: A UI to manage and convert leads.
-    3.  **Financials Page**: UI for generating invoices, logging payments, and managing balances.
-
-### Sprint 6: SuperAdmin
-- **Status**: ⏳ To Do
-- **Objective**: Build the platform-level management tools.
-- **Features**:
-    1.  **SuperAdmin Dashboard**: A top-level view of all organizations and platform metrics.
-    2.  **Tenant Management Page**: UI to onboard, suspend, and manage organizations.
-
-### Post-Sprints: Backend Integration
-- **Objective**: Connect all the UI we've built to the Firebase backend. This will be an ongoing process throughout the sprints, but we'll have a dedicated phase to ensure everything is wired up, secure, and working end-to-end.
+### Post-Sprints: Ongoing Development
+- **Admin Role Features**: Build out the "Command Center" for the `Admin` role (master schedule, full financials).
+- **SuperAdmin Features**: Implement the platform-level management tools.
+- **Advanced Features**: Integrate Genkit for AI-powered features like smart scheduling and automated summaries.
 
 ## 4. Changelog
 
@@ -183,7 +176,7 @@ This section documents the major milestones and feature integrations that have m
 - **Live Data on User Management Page**: The User Management page (`/dashboard/users`) now fetches and displays a live list of users from the Firestore database, replacing the previous mock data.
 - **Live Data on Leads Page**: The Lead Management page (`/dashboard/leads`) is now connected to Firestore and displays real-time lead data.
 - **Live Data on Main Dashboard**: The main dashboard cards (Total Students, Active Students, Leads) now calculate and display live metrics based on data from Firestore.
-- **On-Demand Data Seeding**: The initial "chicken-and-egg" problem of user creation has been solved with a robust, explicit seeding process. A "Seed Database" button now appears on the User Management page, allowing an admin to safely populate all necessary collections with a comprehensive set of sample data in one click.
+- **On-Demand Data Seeding**: The initial "chicken-and-egg" problem of user creation has been solved with a robust, explicit seeding process. A temporary, isolated page (`/seed`) was created to allow an admin to safely populate all necessary collections with a comprehensive set of sample data in one click.
 
 ### Security
 - **Secure Firestore Rules**: The application now has a secure set of Firestore rules that enforce a multi-tenant security model. Data is protected, ensuring that users can only access data appropriate for their role and organization.
@@ -193,13 +186,13 @@ This section documents the major milestones and feature integrations that have m
 This section tracks the iterative process and debugging journey of the application's development.
 
 ### Challenge 1: Initial User Authentication and Data Seeding
-- **Problem**: There was no initial user to log in with, and Firestore collections for `users` and `tenants` did not exist. This created a "chicken-and-egg" scenario where a login was required to create data, but no login was possible without data.
+- **Problem**: There was no initial user to log in with, and Firestore collections for `users` and `tenants` did not exist. This created a "chicken-and-egg" scenario where a login was required to create data, but no login was possible without data. The problem was compounded by restrictive security rules that prevented even logged-in users from reading data.
 - **Attempt 1 (Failed)**: The initial strategy was to create a user "on-the-fly" during the login process. This failed because modern Firebase Auth SDKs bundle "user not found" into a generic `auth/invalid-credential` error, making it impossible to reliably trigger a creation flow.
-- **Attempt 2 (Failed)**: Subsequent attempts involved creating isolated, temporary pages for user creation. These also failed due to complexities in the Next.js routing and layout structure, which continued to trigger Firestore read attempts before the creation page could be accessed, resulting in permission errors.
+- **Attempt 2 (Failed)**: Subsequent attempts involved creating isolated, temporary pages for user creation within the main dashboard layout. These also failed due to complexities in the Next.js routing and layout structure, which continued to trigger Firestore read attempts before the creation page could be accessed, resulting in permission errors.
 - **Final Solution (Success)**: A robust, multi-step solution was implemented.
   1.  **Temporarily Open Rules**: The `firestore.rules` were temporarily set to `allow read, write: if true;`, removing all permission barriers.
-  2.  **Explicit Seeding Button**: A "Seed Database" button was added to the `/dashboard/users` page, visible to the initial admin user.
-  3.  **Comprehensive Seed Script**: A `seedAllData` function was created to perform a batch write that populates all necessary collections (`tenants`, `users`, `subjects`, `courses`, `leads`, etc.) in a single, atomic operation.
+  2.  **Isolated Seeding Page**: A temporary, standalone page was created at `/seed`. This page was completely outside the main application layout, preventing any premature data fetches.
+  3.  **Comprehensive Seed Script**: A `seedAllData` function was created to perform a batch write that populates all necessary collections (`tenants`, `users`, `subjects`, `courses`, `leads`, etc.) in a single, atomic operation, triggered by a button on the `/seed` page.
   4.  **Secure and Finalize**: After the initial data was successfully seeded, the Firestore rules were secured, the temporary seeding UI was cleaned up, and the application was connected to the live data.
 - **Status**: ✅ **Success**. This provided a clean, predictable, and user-controlled way to initialize the database, resolving the core problem cleanly and reliably.
 
