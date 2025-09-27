@@ -7,8 +7,6 @@ import {
   doc,
   collection,
   getDocs,
-  deleteDoc,
-  serverTimestamp,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -58,7 +56,7 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
     
     // Clear root collections
-    console.log('Clearing root user collections...');
+    console.log('Clearing root user and tenant collections...');
     // Note: We are NOT clearing Firebase Auth users themselves.
     // This is harder and can lead to issues. Instead, we overwrite their
     // Firestore documents. For a true reset, you'd do this in Firebase Console.
@@ -99,7 +97,7 @@ export async function seedAllData() {
         console.log(`Auth user ${email} already exists. Skipping creation.`);
       } catch (error: any) {
         // If user does not exist, create them
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/email-already-in-use') {
           await createUserWithEmailAndPassword(auth, email, 'password');
           console.log(`Created auth user for ${email}`);
         } else {
