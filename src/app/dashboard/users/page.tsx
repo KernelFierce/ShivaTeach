@@ -33,7 +33,7 @@ interface TenantUser {
   id: string;
   name: string;
   email: string;
-  role: string;
+  roles: string[];
   status: string;
   joined: string;
 }
@@ -102,10 +102,10 @@ export default function UsersPage() {
             <TableRow key={user.id}>
               <TableCell>
                 <div className="font-medium">{user.name}</div>
-                <div className="text-sm text-muted-foreground md:hidden">{user.role}</div>
+                <div className="text-sm text-muted-foreground md:hidden">{user.roles.join(', ')}</div>
                 <div className="hidden text-sm text-muted-foreground md:inline">{user.email}</div>
               </TableCell>
-              <TableCell className="hidden sm:table-cell">{user.role}</TableCell>
+              <TableCell className="hidden sm:table-cell">{user.roles.join(', ')}</TableCell>
               <TableCell className="hidden sm:table-cell">
                 <Badge variant={getBadgeVariant(user.status)}>{user.status}</Badge>
               </TableCell>

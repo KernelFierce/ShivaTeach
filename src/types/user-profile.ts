@@ -10,6 +10,6 @@ export type UserRole =
 export interface UserProfile {
   displayName: string;
   email: string;
-  role: UserRole;
+  roles: UserRole[];
   activeTenantId: string | null;
 }

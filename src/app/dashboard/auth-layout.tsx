@@ -5,13 +5,43 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect, type PropsWithChildren } from "react"
 import { doc } from "firebase/firestore"
-import type { UserProfile } from "@/types/user-profile"
+import type { UserProfile, UserRole } from "@/types/user-profile"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { Toaster } from "@/components/ui/toaster"
 import { Loader2 } from "lucide-react"
+
+// Defines the "base" path for each role's dashboard.
+// '' represents the root dashboard.
+const roleDashboardMap: { [key in UserRole]: string } = {
+  'SuperAdmin': 'superadmin',
+  'OrganizationAdmin': '',
+  'Admin': '',
+  'Teacher': 'teacher',
+  'Student': 'student',
+  'Parent': 'parent',
+};
+
+// Defines which roles are allowed on which base paths.
+// This allows for users with multiple roles.
+const allowedRolesForPath: { [key: string]: UserRole[] } = {
+  '': ['OrganizationAdmin', 'Admin'], // Root dashboard
+  'superadmin': ['SuperAdmin'],
+  'teacher': ['Teacher'],
+  'student': ['Student'],
+  'parent': ['Parent'],
+   // Pages accessible by admins
+  'users': ['OrganizationAdmin', 'Admin'],
+  'leads': ['OrganizationAdmin', 'Admin'],
+  'courses': ['OrganizationAdmin', 'Admin'],
+  'financials': ['OrganizationAdmin', 'Admin'],
+  'analytics': ['OrganizationAdmin', 'Admin'],
+  'settings': ['OrganizationAdmin', 'Admin'],
+  'schedule': ['OrganizationAdmin', 'Admin'],
+};
+
 
 export function AuthLayout({ children }: PropsWithChildren) {
   const { user, isUserLoading } = useUser();
@@ -34,29 +64,41 @@ export function AuthLayout({ children }: PropsWithChildren) {
       return;
     }
     
-    // Redirect based on role if they are on a mismatched page
-    if (userProfile?.role) {
-      const role = userProfile.role;
-      const currentBase = pathname.split('/')[2] || '';
+    // Redirect logic for users with roles
+    if (userProfile?.roles && userProfile.roles.length > 0) {
+      const userRoles = userProfile.roles;
+      const pathSegments = pathname.split('/').filter(Boolean);
+      const currentBase = pathSegments[1] || '';
       
-      const roleDashboardMap: { [key: string]: string } = {
-        'Teacher': 'teacher',
-        'Student': 'student',
-        'Parent': 'parent',
-        'SuperAdmin': 'superadmin',
-        'OrganizationAdmin': '',
-        'Admin': ''
-      };
-      
-      const expectedBase = roleDashboardMap[role];
+      const isTryingToAccessRootDashboard = currentBase === 'dashboard' && pathSegments.length === 2;
 
-      // If user is on a page not meant for their role, redirect.
-      // Admins are allowed on the root dashboard (''), so we handle that.
-      if (expectedBase !== undefined && currentBase !== expectedBase) {
-         if (expectedBase === '') {
-            router.replace('/dashboard');
-         } else {
-            router.replace(`/dashboard/${expectedBase}`);
+      // If on the root dashboard, find the highest priority role and redirect.
+      if (isTryingToAccessRootDashboard) {
+        const priorityRole = ['SuperAdmin', 'OrganizationAdmin', 'Admin', 'Teacher', 'Student', 'Parent'].find(r => userRoles.includes(r as UserRole));
+        if (priorityRole) {
+          const expectedBase = roleDashboardMap[priorityRole as UserRole];
+          const targetPath = expectedBase ? `/dashboard/${expectedBase}` : '/dashboard';
+          if (pathname !== targetPath) {
+            router.replace(targetPath);
+            return;
+          }
+        }
+      }
+
+      // Check if the current path is allowed for any of the user's roles
+      const accessibleBases = Object.keys(allowedRolesForPath).filter(base => 
+        allowedRolesForPath[base].some(allowedRole => userRoles.includes(allowedRole))
+      );
+      
+      const currentSubPage = pathSegments[2] || (pathSegments[1] === 'dashboard' ? '' : pathSegments[1]);
+
+      if (!accessibleBases.includes(currentSubPage)) {
+         // If no access, redirect to their highest priority dashboard
+         const priorityRole = ['SuperAdmin', 'OrganizationAdmin', 'Admin', 'Teacher', 'Student', 'Parent'].find(r => userRoles.includes(r as UserRole));
+         if (priorityRole) {
+            const expectedBase = roleDashboardMap[priorityRole as UserRole];
+            const targetPath = expectedBase ? `/dashboard/${expectedBase}` : '/dashboard';
+            router.replace(targetPath);
          }
       }
     }

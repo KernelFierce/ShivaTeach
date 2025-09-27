@@ -14,6 +14,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
+import type { UserRole } from '@/types/user-profile';
 
 const TENANT_ID = 'acme-tutoring';
 
@@ -81,7 +82,7 @@ export async function seedAllData() {
     const createUser = async (
       email: string,
       name: string,
-      role: string,
+      roles: UserRole[],
       tenantId: string | null = null,
       status: string = 'Active'
     ) => {
@@ -114,7 +115,7 @@ export async function seedAllData() {
       batch.set(userProfileRef, {
         displayName: name,
         email: email,
-        role: role,
+        roles: roles,
         activeTenantId: tenantId,
       });
 
@@ -123,21 +124,21 @@ export async function seedAllData() {
         batch.set(tenantUserRef, {
           name: name,
           email: email,
-          role: role,
+          roles: roles,
           status: status,
           joined: new Date().toLocaleDateString('en-CA'),
         });
       }
-      return { uid, name, email, role };
+      return { uid, name, email, roles };
     };
 
-    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', 'SuperAdmin');
-    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', 'OrganizationAdmin', TENANT_ID);
-    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', 'Teacher', TENANT_ID);
-    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', 'Student', TENANT_ID);
-    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', 'Student', TENANT_ID);
-    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', 'Parent', TENANT_ID);
-    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', 'Student', TENANT_ID, 'Inactive');
+    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', ['SuperAdmin']);
+    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], TENANT_ID);
+    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], TENANT_ID);
+    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student'], TENANT_ID);
+    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], TENANT_ID);
+    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', ['Parent'], TENANT_ID);
+    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', ['Student'], TENANT_ID, 'Inactive');
 
     // 5. Create Subjects and Courses
     console.log('Creating subjects and courses...');
@@ -168,9 +169,12 @@ export async function seedAllData() {
     // 6. Create Sample Sessions
     console.log('Creating sample sessions...');
     const sessions = [
-        { startTime: Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000)), courseId: 'alg-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
-        { startTime: Timestamp.fromDate(new Date(Date.now() + 4 * 60 * 60 * 1000)), courseId: 'chem-1', teacherId: teacher.uid, studentId: student2.uid, status: 'Scheduled' },
-        { startTime: Timestamp.fromDate(new Date(Date.now() + 26 * 60 * 60 * 1000)), courseId: 'wh-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+        // Today's sessions
+        { startTime: Timestamp.fromDate(new Date(new Date().setHours(10, 0, 0, 0))), courseId: 'alg-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+        { startTime: Timestamp.fromDate(new Date(new Date().setHours(14, 0, 0, 0))), courseId: 'chem-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
+        // Future sessions
+        { startTime: Timestamp.fromDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)), courseId: 'wh-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+        { startTime: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), courseId: 'bio-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
     ];
 
     sessions.forEach((session) => {

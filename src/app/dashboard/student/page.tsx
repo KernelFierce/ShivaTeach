@@ -21,11 +21,17 @@ import {
   CalendarDays,
   Loader2
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  Timestamp
+} from 'firebase/firestore';
+import { format } from 'date-fns';
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
-import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 
@@ -109,7 +115,7 @@ export default function StudentDashboardPage() {
           <CardContent>
             {isLoading ? (
                 <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
-            ) : (
+            ) : sessions && sessions.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -120,7 +126,7 @@ export default function StudentDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions?.map((session) => (
+                {sessions.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell className="font-medium">{format(session.startTime.toDate(), 'MMM d, yyyy')}</TableCell>
                     <TableCell>{format(session.startTime.toDate(), 'p')}</TableCell>
@@ -130,6 +136,10 @@ export default function StudentDashboardPage() {
                 ))}
               </TableBody>
             </Table>
+            ) : (
+              <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                  <p className="text-muted-foreground text-center">No upcoming sessions scheduled.</p>
+              </div>
             )}
           </CardContent>
         </Card>

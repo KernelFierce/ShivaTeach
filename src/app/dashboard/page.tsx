@@ -31,8 +31,9 @@ import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebas
 
 interface TenantUser {
   id: string;
+  name: string;
   status: string;
-  role: string;
+  roles: string[];
 }
 
 interface Lead {
@@ -89,8 +90,8 @@ export default function DashboardPage() {
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useCollection<Course>(coursesCollectionRef);
   const { data: allUsers, isLoading: allUsersLoading, error: allUsersError } = useCollection<TenantUser>(usersCollectionRef);
 
-  const totalStudents = users ? users.filter(u => u.role === 'Student').length : 0;
-  const activeStudents = users ? users.filter(u => u.role === 'Student' && u.status === 'Active').length : 0;
+  const totalStudents = users ? users.filter(u => u.roles.includes('Student')).length : 0;
+  const activeStudents = users ? users.filter(u => u.roles.includes('Student') && u.status === 'Active').length : 0;
   const totalLeads = leads ? leads.length : 0;
 
   const isLoading = usersLoading || leadsLoading || sessionsLoading || coursesLoading || allUsersLoading;
@@ -208,7 +209,7 @@ export default function DashboardPage() {
                  <div className="flex items-center justify-center h-48">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                  </div>
-            ) : (
+            ) : sessions && sessions.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -218,7 +219,7 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions && sessions.map((session) => (
+                {sessions.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell>
                       <div className="font-medium">{getUserName(session.studentId)}</div>
@@ -232,6 +233,10 @@ export default function DashboardPage() {
                 ))}
               </TableBody>
             </Table>
+            ) : (
+              <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                  <p className="text-muted-foreground text-center">No upcoming sessions found.</p>
+              </div>
             )}
           </CardContent>
         </Card>

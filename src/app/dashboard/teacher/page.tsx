@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -39,9 +40,7 @@ interface Session {
 interface TenantUser {
     id: string;
     name: string;
-    role: string;
-    subject?: string; // This might not be on the user object directly
-    lastSession?: string; // This would likely come from session data
+    roles: string[];
 }
 
 interface Course {
@@ -55,6 +54,7 @@ export default function TeacherDashboardPage() {
     const firestore = useFirestore();
     const tenantId = 'acme-tutoring';
     const avatar = PlaceHolderImages.find(p => p.id === 'avatar-2');
+    const studentAvatar = PlaceHolderImages.find(p => p.id === 'student-avatar');
 
     const sessionsQueryRef = useMemoFirebase(() => {
         if (!firestore || !tenantId || !user) return null;
@@ -63,7 +63,7 @@ export default function TeacherDashboardPage() {
             where('teacherId', '==', user.uid),
             where('startTime', '>=', new Date()),
             orderBy('startTime'),
-            limit(5)
+            limit(10) // Fetch more sessions to get a better list of students
         );
     }, [firestore, tenantId, user]);
 
@@ -81,11 +81,18 @@ export default function TeacherDashboardPage() {
     const { data: allUsers, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
     const { data: courses, isLoading: coursesLoading } = useCollection<Course>(coursesCollectionRef);
 
-    const teacherStudents = useMemoFirebase(() => {
+    const teacherStudents = useMemo(() => {
         if (!sessions || !allUsers) return [];
         const studentIds = new Set(sessions.map(s => s.studentId));
         return allUsers.filter(u => studentIds.has(u.id));
     }, [sessions, allUsers]);
+
+    const sessionsToday = useMemo(() => {
+      if (!sessions) return [];
+      const today = format(new Date(), 'yyyy-MM-dd');
+      return sessions.filter(s => format(s.startTime.toDate(), 'yyyy-MM-dd') === today);
+    }, [sessions]);
+
 
     const getStudentName = (studentId: string) => allUsers?.find(u => u.id === studentId)?.name || '...';
     const getCourseName = (courseId: string) => courses?.find(c => c.id === courseId)?.name || '...';
@@ -116,7 +123,7 @@ export default function TeacherDashboardPage() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
+          </Header>
           <CardContent>
             {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{teacherStudents.length}</div>}
             <p className="text-xs text-muted-foreground">
@@ -149,7 +156,7 @@ export default function TeacherDashboardPage() {
           <CardContent>
             {isLoading ? (
                 <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
-            ) : (
+            ) : sessionsToday.length > 0 ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -159,7 +166,7 @@ export default function TeacherDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions?.filter(s => format(s.startTime.toDate(), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')).map((session) => (
+                {sessionsToday.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell className="font-medium">{format(session.startTime.toDate(), 'p')}</TableCell>
                     <TableCell>{getStudentName(session.studentId)}</TableCell>
@@ -168,6 +175,10 @@ export default function TeacherDashboardPage() {
                 ))}
               </TableBody>
             </Table>
+            ) : (
+               <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                  <p className="text-muted-foreground text-center">No sessions scheduled for today.</p>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -175,27 +186,30 @@ export default function TeacherDashboardPage() {
           <CardHeader>
             <CardTitle className="font-headline">My Students</CardTitle>
             <CardDescription>
-              A quick overview of your assigned students.
+              A quick overview of your students with upcoming sessions.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
                 <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
-            ) : (
+            ) : teacherStudents.length > 0 ? (
             <div className="space-y-4">
                 {teacherStudents.map(student => (
                     <div key={student.id} className="flex items-center gap-4">
                         <Avatar className="h-9 w-9">
-                           {avatar && <AvatarImage src={avatar.imageUrl} data-ai-hint={avatar.imageHint} />}
+                           {studentAvatar && <AvatarImage src={studentAvatar.imageUrl} data-ai-hint={studentAvatar.imageHint} />}
                            <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
                             <p className="font-medium">{student.name}</p>
-                            <p className="text-sm text-muted-foreground">{/* Course info could be added here */}</p>
                         </div>
                     </div>
                 ))}
             </div>
+            ) : (
+                <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <p className="text-muted-foreground text-center">No students found.</p>
+                </div>
             )}
           </CardContent>
         </Card>
