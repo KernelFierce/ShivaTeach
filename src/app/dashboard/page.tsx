@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useState, useTransition } from "react";
 import {
   Card,
   CardContent,
@@ -22,12 +23,16 @@ import {
   Briefcase,
   DollarSign,
   LineChart,
-  Loader2
+  Loader2,
+  Sparkles,
 } from "lucide-react"
 import { collection, query, where, orderBy, limit, Timestamp } from "firebase/firestore";
 import { format } from 'date-fns';
 
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { summarizeText } from "@/ai/flows/summarize-text-flow";
 
 interface TenantUser {
   id: string;
@@ -58,6 +63,10 @@ export default function DashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const tenantId = 'acme-tutoring'; // This should be dynamic in a real multi-tenant app
+
+  const [textToSummarize, setTextToSummarize] = useState("");
+  const [summary, setSummary] = useState("");
+  const [isSummarizing, startSummarizing] = useTransition();
 
   const usersCollectionRef = useMemoFirebase(() => {
     if (!firestore || !tenantId) return null;
@@ -96,6 +105,14 @@ export default function DashboardPage() {
 
   const isLoading = usersLoading || leadsLoading || sessionsLoading || coursesLoading || allUsersLoading;
   const isError = usersError || leadsError || sessionsError || coursesError || allUsersError;
+
+  const handleSummarize = () => {
+    if (!textToSummarize) return;
+    startSummarizing(async () => {
+      const result = await summarizeText({ textToSummarize });
+      setSummary(result.summary);
+    });
+  };
 
   const renderStat = (value: number) => {
     if (isLoading) return <Loader2 className="h-6 w-6 animate-spin"/>;
@@ -241,6 +258,41 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+       <Card>
+        <CardHeader>
+          <CardTitle className="font-headline flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-accent" />
+            AI Text Summarizer
+          </CardTitle>
+          <CardDescription>
+            Paste any text below to generate a concise summary using AI.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="Paste your session notes, a long email, or any other text here..."
+            className="h-32"
+            value={textToSummarize}
+            onChange={(e) => setTextToSummarize(e.target.value)}
+            disabled={isSummarizing}
+          />
+          <Button onClick={handleSummarize} disabled={isSummarizing || !textToSummarize}>
+            {isSummarizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSummarizing ? "Summarizing..." : "Generate Summary"}
+          </Button>
+          {summary && (
+            <Card className="bg-muted/50">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm">{summary}</p>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
