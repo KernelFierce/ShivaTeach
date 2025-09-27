@@ -132,9 +132,9 @@ export default function StudentDashboardPage() {
 
   const assignmentsQueryRef = useMemoFirebase(() => {
     if (!firestore || !tenantId || !user) return null;
+    // Secure query: Fetches assignments only from the current user's subcollection.
     return query(
-      collection(firestore, `tenants/${tenantId}/assignments`),
-      where('studentId', '==', user.uid),
+      collection(firestore, `tenants/${tenantId}/users/${user.uid}/assignments`),
       orderBy('dueDate')
     );
   }, [firestore, tenantId, user]);

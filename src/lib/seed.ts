@@ -51,10 +51,11 @@ export async function seedAllData() {
     console.log('Clearing existing tenant subcollections...');
     // A more robust solution would be to iterate through all user docs and clear their subcollections.
     // For now, we manually list them for our known test users.
-    const userIdsToClear = (await getDocs(collection(db, `tenants/${TENANT_ID}/users`))).docs.map(d => d.id);
-    for (const userId of userIdsToClear) {
-        await clearCollection(db, `tenants/${TENANT_ID}/users/${userId}/sessionsAsStudent`);
-        await clearCollection(db, `tenants/${TENANT_ID}/users/${userId}/sessionsAsTeacher`);
+    const userDocs = await getDocs(collection(db, `tenants/${TENANT_ID}/users`));
+    for (const userDoc of userDocs.docs) {
+        await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/sessionsAsStudent`);
+        await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/sessionsAsTeacher`);
+        await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/assignments`);
     }
 
     await clearCollection(db, `tenants/${TENANT_ID}/users`);
@@ -63,7 +64,6 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/sessions`);
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
     await clearCollection(db, `tenants/${TENANT_ID}/availabilities`);
-    await clearCollection(db, `tenants/${TENANT_ID}/assignments`);
     await clearCollection(db, `tenants/${TENANT_ID}/invoices`);
     await clearCollection(db, `tenants/${TENANT_ID}/payments`);
     
@@ -241,8 +241,8 @@ export async function seedAllData() {
         });
     });
 
-    // 9. Create Sample Assignments
-    console.log('Creating sample assignments...');
+    // 9. Create Sample Assignments (in user subcollections)
+    console.log('Creating sample assignments in user subcollections...');
     const assignments = [
         { 
             title: 'Algebra Homework 1', 
@@ -265,8 +265,12 @@ export async function seedAllData() {
     ];
 
     assignments.forEach((assignment) => {
-        const assignmentRef = doc(collection(db, `tenants/${TENANT_ID}/assignments`));
-        batch.set(assignmentRef, assignment);
+        const assignmentRef = doc(collection(db, `tenants/${TENANT_ID}/users/${assignment.studentId}/assignments`));
+        batch.set(assignmentRef, {
+            title: assignment.title,
+            courseId: assignment.courseId,
+            dueDate: assignment.dueDate,
+        });
     });
 
     // 10. Create Sample Invoices and Payments
