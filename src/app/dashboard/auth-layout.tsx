@@ -5,6 +5,7 @@ import { useUser, useDoc, useFirestore, useMemoFirebase } from "@/firebase"
 import { useRouter, usePathname } from "next/navigation"
 import { useEffect, type PropsWithChildren } from "react"
 import { doc } from "firebase/firestore"
+import type { UserProfile } from "@/types/user-profile"
 
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { DashboardHeader } from "@/components/dashboard-header"
@@ -23,7 +24,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
     return doc(firestore, "users", user.uid);
   }, [firestore, user?.uid]);
 
-  const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc<UserProfile>(userDocRef);
 
   useEffect(() => {
     if (isUserLoading || isProfileLoading) return; // Wait for user and profile to load
@@ -36,25 +37,27 @@ export function AuthLayout({ children }: PropsWithChildren) {
     // Redirect based on role if they are on a mismatched page
     if (userProfile?.role) {
       const role = userProfile.role;
-
-      // Admins can see all top-level dashboard pages
-      if (role === 'OrganizationAdmin' || role === 'Admin') {
-        // No redirect needed for admins, they have full access to /dashboard/*
-        return;
-      }
-
-      // For other roles, redirect them to their specific dashboard
+      const currentBase = pathname.split('/')[2] || '';
+      
       const roleDashboardMap: { [key: string]: string } = {
-        'Teacher': '/dashboard/teacher',
-        'Student': '/dashboard/student',
-        'Parent': '/dashboard/parent',
-        'SuperAdmin': '/dashboard/superadmin'
+        'Teacher': 'teacher',
+        'Student': 'student',
+        'Parent': 'parent',
+        'SuperAdmin': 'superadmin',
+        'OrganizationAdmin': '',
+        'Admin': ''
       };
       
-      const expectedPath = roleDashboardMap[role];
+      const expectedBase = roleDashboardMap[role];
 
-      if (expectedPath && !pathname.startsWith(expectedPath)) {
-        router.replace(expectedPath);
+      // If user is on a page not meant for their role, redirect.
+      // Admins are allowed on the root dashboard (''), so we handle that.
+      if (expectedBase !== undefined && currentBase !== expectedBase) {
+         if (expectedBase === '') {
+            router.replace('/dashboard');
+         } else {
+            router.replace(`/dashboard/${expectedBase}`);
+         }
       }
     }
 

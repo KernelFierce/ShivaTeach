@@ -7,6 +7,7 @@ import {
   doc,
   collection,
   getDocs,
+  Timestamp,
 } from 'firebase/firestore';
 import {
   getAuth,
@@ -46,8 +47,6 @@ export async function seedAllData() {
     console.log('--- Starting Database Seed ---');
 
     // 1. Clear Existing Data
-    // We must be careful about the order. Subcollections need to be cleared first
-    // if we were deleting tenants, but here we just clear subcollection contents.
     console.log('Clearing existing tenant subcollections...');
     await clearCollection(db, `tenants/${TENANT_ID}/users`);
     await clearCollection(db, `tenants/${TENANT_ID}/subjects`);
@@ -55,11 +54,7 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/sessions`);
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
     
-    // Clear root collections
     console.log('Clearing root user and tenant collections...');
-    // Note: We are NOT clearing Firebase Auth users themselves.
-    // This is harder and can lead to issues. Instead, we overwrite their
-    // Firestore documents. For a true reset, you'd do this in Firebase Console.
     await clearCollection(db, 'users');
     await clearCollection(db, 'tenants');
 
@@ -83,7 +78,6 @@ export async function seedAllData() {
     // 4. Create Users and Auth Credentials
     console.log('Creating authentication users...');
 
-    // Function to safely create auth user and Firestore docs
     const createUser = async (
       email: string,
       name: string,
@@ -92,11 +86,9 @@ export async function seedAllData() {
       status: string = 'Active'
     ) => {
       try {
-        // First, attempt to sign in. If the user exists, we don't need to create them.
         await signInWithEmailAndPassword(auth, email, 'password');
         console.log(`Auth user ${email} already exists. Skipping creation.`);
       } catch (error: any) {
-        // If user does not exist, create them
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
           try {
             await createUserWithEmailAndPassword(auth, email, 'password');
@@ -109,27 +101,23 @@ export async function seedAllData() {
              }
           }
         } else {
-            // Re-throw other auth errors
             throw error;
         }
       }
 
-      // Now, get the user to retrieve the UID
       await signInWithEmailAndPassword(auth, email, 'password');
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error(`Could not get user for ${email}`);
       const uid = currentUser.uid;
 
-      // Create private user profile
       const userProfileRef = doc(db, 'users', uid);
       batch.set(userProfileRef, {
         displayName: name,
         email: email,
         role: role,
-        activeTenantId: tenantId, // SuperAdmin has no active tenant by default
+        activeTenantId: tenantId,
       });
 
-      // If the user belongs to a tenant, create their public tenant profile
       if (tenantId) {
         const tenantUserRef = doc(db, `tenants/${tenantId}/users`, uid);
         batch.set(tenantUserRef, {
@@ -137,55 +125,21 @@ export async function seedAllData() {
           email: email,
           role: role,
           status: status,
-          joined: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD
+          joined: new Date().toLocaleDateString('en-CA'),
         });
       }
       return { uid, name, email, role };
     };
 
-    // Create SuperAdmin
-    const superAdmin = await createUser(
-      'super@tutorhub.com',
-      'Shiva Sai',
-      'SuperAdmin'
-    );
-    
-    // Create OrganizationAdmin for Acme Tutors
-    const orgAdmin = await createUser(
-      'admin@tutorhub.com',
-      'Maria Garcia',
-      'OrganizationAdmin',
-      TENANT_ID
-    );
+    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', 'SuperAdmin');
+    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', 'OrganizationAdmin', TENANT_ID);
+    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', 'Teacher', TENANT_ID);
+    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', 'Student', TENANT_ID);
+    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', 'Student', TENANT_ID);
+    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', 'Parent', TENANT_ID);
+    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', 'Student', TENANT_ID, 'Inactive');
 
-    // Create other users for the Acme Tutors tenant
-    const teacher = await createUser(
-      'teacher@tutorhub.com',
-      'David Chen',
-      'Teacher',
-      TENANT_ID
-    );
-    const student = await createUser(
-      'student@tutorhub.com',
-      'Alex Johnson',
-      'Student',
-      TENANT_ID
-    );
-    const parent = await createUser(
-      'parent@tutorhub.com',
-      'Carol Johnson',
-      'Parent',
-      TENANT_ID
-    );
-     const inactiveUser = await createUser(
-      'inactive@tutorhub.com',
-      'Bob Smith',
-      'Student',
-      TENANT_ID,
-      'Inactive'
-    );
-
-    // 5. Create Subjects and Courses for the Tenant
+    // 5. Create Subjects and Courses
     console.log('Creating subjects and courses...');
     const subjects = [
       { id: 'math', name: 'Mathematics' },
@@ -194,41 +148,11 @@ export async function seedAllData() {
     ];
 
     const courses = [
-      {
-        id: 'alg-1',
-        subjectId: 'math',
-        name: 'Algebra I',
-        description: 'Fundamental concepts of algebra.',
-        hourlyRate: 55,
-      },
-      {
-        id: 'geom-1',
-        subjectId: 'math',
-        name: 'Geometry',
-        description: 'Study of shapes, sizes, and properties of space.',
-        hourlyRate: 55,
-      },
-      {
-        id: 'bio-1',
-        subjectId: 'science',
-        name: 'Biology',
-        description: 'The study of living organisms.',
-        hourlyRate: 60,
-      },
-      {
-        id: 'chem-1',
-        subjectId: 'science',
-        name: 'Chemistry',
-        description: 'The study of matter and its properties.',
-        hourlyRate: 65,
-      },
-       {
-        id: 'wh-1',
-        subjectId: 'humanities',
-        name: 'World History',
-        description: 'A survey of major global events.',
-        hourlyRate: 50,
-      },
+      { id: 'alg-1', subjectId: 'math', name: 'Algebra I', hourlyRate: 55 },
+      { id: 'geom-1', subjectId: 'math', name: 'Geometry', hourlyRate: 55 },
+      { id: 'bio-1', subjectId: 'science', name: 'Biology', hourlyRate: 60 },
+      { id: 'chem-1', subjectId: 'science', name: 'Chemistry', hourlyRate: 65 },
+      { id: 'wh-1', subjectId: 'humanities', name: 'World History', hourlyRate: 50 },
     ];
 
     subjects.forEach((subject) => {
@@ -241,33 +165,26 @@ export async function seedAllData() {
       batch.set(courseRef, course);
     });
 
-    // 6. Create Sample Leads
+    // 6. Create Sample Sessions
+    console.log('Creating sample sessions...');
+    const sessions = [
+        { startTime: Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000)), courseId: 'alg-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+        { startTime: Timestamp.fromDate(new Date(Date.now() + 4 * 60 * 60 * 1000)), courseId: 'chem-1', teacherId: teacher.uid, studentId: student2.uid, status: 'Scheduled' },
+        { startTime: Timestamp.fromDate(new Date(Date.now() + 26 * 60 * 60 * 1000)), courseId: 'wh-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+    ];
+
+    sessions.forEach((session) => {
+        const sessionRef = doc(collection(db, `tenants/${TENANT_ID}/sessions`));
+        batch.set(sessionRef, session);
+    });
+
+
+    // 7. Create Sample Leads
     console.log('Creating sample leads...');
     const leads = [
-      {
-        firstName: 'Potential',
-        lastName: 'Student',
-        email: 'potential@example.com',
-        phone: '555-123-4567',
-        status: 'New',
-        notes: 'Interested in SAT prep.',
-      },
-      {
-        firstName: 'Another',
-        lastName: 'Lead',
-        email: 'another@example.com',
-        phone: '555-987-6543',
-        status: 'Contacted',
-        notes: 'Followed up via email on Monday.',
-      },
-       {
-        firstName: 'Converted',
-        lastName: 'NowStudent',
-        email: 'converted@example.com',
-        phone: '555-555-5555',
-        status: 'Converted',
-        notes: 'Enrolled in Algebra I.',
-      },
+      { firstName: 'Potential', lastName: 'Student', email: 'potential@example.com', status: 'New' },
+      { firstName: 'Another', lastName: 'Lead', email: 'another@example.com', status: 'Contacted' },
+      { firstName: 'Converted', lastName: 'NowStudent', email: 'converted@example.com', status: 'Converted' },
     ];
 
     leads.forEach((lead) => {
@@ -275,11 +192,10 @@ export async function seedAllData() {
       batch.set(leadRef, lead);
     });
 
-    // 7. Commit all writes to the database
+    // 8. Commit all writes
     console.log('Committing all changes...');
     await batch.commit();
 
-    // Sign out to ensure a clean state after seeding
     await auth.signOut();
 
     console.log('--- Database Seed Successful ---');

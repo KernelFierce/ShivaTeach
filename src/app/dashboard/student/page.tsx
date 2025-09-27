@@ -1,3 +1,6 @@
+
+'use client';
+
 import {
   Card,
   CardContent,
@@ -16,25 +19,78 @@ import {
 import {
   BookCheck,
   CalendarDays,
+  Loader2
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
-import { studentUser, studentUpcomingSessions, studentAssignments } from "@/lib/mock-data"
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 
+interface Session {
+    id: string;
+    startTime: Timestamp;
+    courseId: string;
+    teacherId: string;
+}
+
+interface Course {
+    id: string;
+    name: string;
+}
+
+interface TenantUser {
+    id: string;
+    name: string;
+}
+
 export default function StudentDashboardPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const tenantId = 'acme-tutoring';
   const avatar = PlaceHolderImages.find(p => p.id === 'student-avatar');
+
+  const sessionsQueryRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId || !user) return null;
+    return query(
+      collection(firestore, 'tenants', tenantId, 'sessions'),
+      where('studentId', '==', user.uid),
+      where('startTime', '>=', new Date()),
+      orderBy('startTime'),
+      limit(5)
+    );
+  }, [firestore, tenantId, user]);
+
+  const coursesCollectionRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, 'tenants', tenantId, 'courses');
+  }, [firestore, tenantId]);
+
+  const usersCollectionRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, 'tenants', tenantId, 'users');
+  }, [firestore, tenantId]);
+  
+  const { data: sessions, isLoading: sessionsLoading } = useCollection<Session>(sessionsQueryRef);
+  const { data: courses, isLoading: coursesLoading } = useCollection<Course>(coursesCollectionRef);
+  const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
+
+  const getCourseName = (courseId: string) => courses?.find(c => c.id === courseId)?.name || '...';
+  const getUserName = (userId: string) => users?.find(u => u.id === userId)?.name || '...';
+
+  const isLoading = sessionsLoading || coursesLoading || usersLoading;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
         <Avatar className="h-16 w-16">
             {avatar && <AvatarImage src={avatar.imageUrl} data-ai-hint={avatar.imageHint} />}
-            <AvatarFallback>{studentUser.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{user?.displayName?.charAt(0)}</AvatarFallback>
         </Avatar>
         <div>
-            <h1 className="text-3xl font-bold font-headline">Welcome, {studentUser.name.split(' ')[0]}!</h1>
+            <h1 className="text-3xl font-bold font-headline">Welcome, {user?.displayName?.split(' ')[0]}!</h1>
             <p className="text-muted-foreground">Here's your academic snapshot.</p>
         </div>
       </div>
@@ -51,6 +107,9 @@ export default function StudentDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isLoading ? (
+                <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -61,16 +120,17 @@ export default function StudentDashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {studentUpcomingSessions.map((session) => (
+                {sessions?.map((session) => (
                   <TableRow key={session.id}>
-                    <TableCell className="font-medium">{session.date}</TableCell>
-                    <TableCell>{session.time}</TableCell>
-                    <TableCell>{session.subject}</TableCell>
-                    <TableCell className="text-right">{session.teacher}</TableCell>
+                    <TableCell className="font-medium">{format(session.startTime.toDate(), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>{format(session.startTime.toDate(), 'p')}</TableCell>
+                    <TableCell>{getCourseName(session.courseId)}</TableCell>
+                    <TableCell className="text-right">{getUserName(session.teacherId)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
         <Card className="lg:col-span-3">
@@ -84,29 +144,9 @@ export default function StudentDashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Subject</TableHead>
-                  <TableHead>Due Date</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {studentAssignments.map(assignment => (
-                    <TableRow key={assignment.id}>
-                        <TableCell>
-                            <div className="font-medium">{assignment.title}</div>
-                            <div className="text-sm text-muted-foreground">{assignment.subject}</div>
-                        </TableCell>
-                        <TableCell>{assignment.due}</TableCell>
-                        <TableCell className="text-right">
-                           <Badge variant={assignment.status === 'Completed' ? 'default' : 'secondary'}>{assignment.status}</Badge>
-                        </TableCell>
-                    </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+             <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                <p className="text-muted-foreground">Assignments coming soon...</p>
+             </div>
           </CardContent>
         </Card>
       </div>

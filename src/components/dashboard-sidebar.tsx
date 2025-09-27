@@ -46,35 +46,44 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Logo } from "@/components/logo"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
+import type { UserProfile } from "@/types/user-profile"
 
-const adminNavItems = [
-  { href: "/dashboard", icon: Home, label: "Dashboard" },
-  { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
-  { href: "/dashboard/users", icon: Users, label: "Users" },
-  { href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
-  { href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
-  { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
-  { href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
-]
+const navLinks: { [key: string]: { href: string; icon: React.ElementType; label: string }[] } = {
+    OrganizationAdmin: [
+        { href: "/dashboard", icon: Home, label: "Dashboard" },
+        { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
+        { href: "/dashboard/users", icon: Users, label: "Users" },
+        { href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
+        { href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
+        { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
+        { href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
+    ],
+    Admin: [ // Same as Org Admin for now
+        { href: "/dashboard", icon: Home, label: "Dashboard" },
+        { href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
+        { href: "/dashboard/users", icon: Users, label: "Users" },
+        { href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
+        { href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
+        { href: "/dashboard/financials", icon: Wallet, label: "Financials" },
+        { href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
+    ],
+    Teacher: [
+        { href: "/dashboard/teacher", icon: Home, label: "Dashboard" },
+        { href: "/dashboard/teacher/availability", icon: Calendar, label: "Availability" },
+        { href: "/dashboard/teacher/lessons", icon: BookUser, label: "Lessons" },
+    ],
+    Student: [
+        { href: "/dashboard/student", icon: GraduationCap, label: "Dashboard" },
+    ],
+    Parent: [
+        { href: "/dashboard/parent", icon: HeartHandshake, label: "Parent Portal" },
+    ],
+    SuperAdmin: [
+        { href: "/dashboard/superadmin", icon: ShieldCheck, label: "Platform" },
+        { href: "/dashboard/superadmin/tenants", icon: Building, label: "Tenants" },
+    ]
+};
 
-const teacherNavItems = [
-  { href: "/dashboard/teacher", icon: Home, label: "Dashboard" },
-  { href: "/dashboard/teacher/availability", icon: Calendar, label: "Availability" },
-  { href: "/dashboard/teacher/lessons", icon: BookUser, label: "Lessons" },
-];
-
-const studentNavItems = [
-    { href: "/dashboard/student", icon: GraduationCap, label: "Dashboard" },
-];
-
-const parentNavItems = [
-    { href: "/dashboard/parent", icon: HeartHandshake, label: "Parent Portal" },
-];
-
-const superAdminNavItems = [
-    { href: "/dashboard/superadmin", icon: ShieldCheck, label: "Platform" },
-    { href: "/dashboard/superadmin/tenants", icon: Building, label: "Tenants" },
-]
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -89,7 +98,7 @@ export function DashboardSidebar() {
     return doc(firestore, "users", user.uid);
   }, [firestore, user?.uid]);
 
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -97,12 +106,7 @@ export function DashboardSidebar() {
   }
 
   const role = userProfile?.role;
-  let navItems = adminNavItems; // Default to admin
-  if (role === 'Teacher') navItems = teacherNavItems;
-  if (role === 'Student') navItems = studentNavItems;
-  if (role === 'Parent') navItems = parentNavItems;
-  if (role === 'SuperAdmin') navItems = superAdminNavItems;
-
+  const navItems = role ? (navLinks[role] || []) : [];
 
   const userName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
@@ -124,7 +128,7 @@ export function DashboardSidebar() {
       <SidebarMenuItem key={item.label}>
         <Link href={item.href}>
           <SidebarMenuButton
-            isActive={pathname.startsWith(item.href) && (item.href === '/dashboard' ? pathname === item.href : true) }
+            isActive={pathname.startsWith(item.href) && (item.href.split('/').length === pathname.split('/').length || item.href === '/dashboard' ? pathname === item.href : true) }
             icon={<item.icon />}
             tooltip={item.label}
           >
@@ -147,19 +151,21 @@ export function DashboardSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className="flex flex-col gap-2">
-           <SidebarMenu>
-              <SidebarMenuItem>
-                <Link href="/dashboard/settings">
-                  <SidebarMenuButton
-                    isActive={pathname === "/dashboard/settings"}
-                    icon={<Settings />}
-                    tooltip="Settings"
-                  >
-                    Settings
-                  </SidebarMenuButton>
-                </Link>
-            </SidebarMenuItem>
-           </SidebarMenu>
+            { (role === 'OrganizationAdmin' || role === 'Admin') && (
+                 <SidebarMenu>
+                    <SidebarMenuItem>
+                        <Link href="/dashboard/settings">
+                        <SidebarMenuButton
+                            isActive={pathname === "/dashboard/settings"}
+                            icon={<Settings />}
+                            tooltip="Settings"
+                        >
+                            Settings
+                        </SidebarMenuButton>
+                        </Link>
+                    </SidebarMenuItem>
+                 </SidebarMenu>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                  <div className="flex items-center gap-2 p-2 rounded-md hover:bg-sidebar-accent cursor-pointer">

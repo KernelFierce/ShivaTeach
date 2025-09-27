@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -25,11 +24,10 @@ import {
   LineChart,
   Loader2
 } from "lucide-react"
-import { collection } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, Timestamp } from "firebase/firestore";
+import { format } from 'date-fns';
 
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
-import { FinancialChart } from "./financial-chart"
-import { financialData, upcomingSessions } from "@/lib/mock-data" // Keep some mock data for now
 
 interface TenantUser {
   id: string;
@@ -40,6 +38,19 @@ interface TenantUser {
 interface Lead {
     id: string;
     status: string;
+}
+
+interface Session {
+    id: string;
+    startTime: Timestamp;
+    courseId: string;
+    studentId: string;
+    teacherId: string;
+}
+
+interface Course {
+    id: string;
+    name: string;
 }
 
 export default function DashboardPage() {
@@ -57,20 +68,46 @@ export default function DashboardPage() {
     return collection(firestore, 'tenants', tenantId, 'leads');
   }, [firestore, tenantId]);
 
+  const sessionsQueryRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return query(
+      collection(firestore, 'tenants', tenantId, 'sessions'),
+      where('startTime', '>=', new Date()),
+      orderBy('startTime'),
+      limit(5)
+    );
+  }, [firestore, tenantId]);
+
+  const coursesCollectionRef = useMemoFirebase(() => {
+    if (!firestore || !tenantId) return null;
+    return collection(firestore, 'tenants', tenantId, 'courses');
+  }, [firestore, tenantId]);
+
   const { data: users, isLoading: usersLoading, error: usersError } = useCollection<TenantUser>(usersCollectionRef);
   const { data: leads, isLoading: leadsLoading, error: leadsError } = useCollection<Lead>(leadsCollectionRef);
+  const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useCollection<Session>(sessionsQueryRef);
+  const { data: courses, isLoading: coursesLoading, error: coursesError } = useCollection<Course>(coursesCollectionRef);
+  const { data: allUsers, isLoading: allUsersLoading, error: allUsersError } = useCollection<TenantUser>(usersCollectionRef);
 
   const totalStudents = users ? users.filter(u => u.role === 'Student').length : 0;
   const activeStudents = users ? users.filter(u => u.role === 'Student' && u.status === 'Active').length : 0;
   const totalLeads = leads ? leads.length : 0;
 
-  const isLoading = usersLoading || leadsLoading;
-  const isError = usersError || leadsError;
+  const isLoading = usersLoading || leadsLoading || sessionsLoading || coursesLoading || allUsersLoading;
+  const isError = usersError || leadsError || sessionsError || coursesError || allUsersError;
 
   const renderStat = (value: number) => {
     if (isLoading) return <Loader2 className="h-6 w-6 animate-spin"/>;
     if (isError) return <span className="text-destructive text-sm">Error</span>;
     return <div className="text-2xl font-bold">{value}</div>;
+  }
+
+  const getUserName = (userId: string) => {
+    return allUsers?.find(u => u.id === userId)?.name || '...';
+  }
+
+  const getCourseName = (courseId: string) => {
+    return courses?.find(c => c.id === courseId)?.name || '...';
   }
 
   return (
@@ -134,9 +171,9 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${financialData[financialData.length - 1].revenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-muted-foreground">N/A</div>
             <p className="text-xs text-muted-foreground">
-              For the current month (mock)
+              Connect invoicing to see data
             </p>
           </CardContent>
         </Card>
@@ -150,21 +187,28 @@ export default function DashboardPage() {
               Financial Overview
             </CardTitle>
             <CardDescription>
-              Monthly revenue and expenses overview (mock data).
+              Monthly revenue and expenses will be displayed here once invoicing is set up.
             </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
-            <FinancialChart data={financialData} />
+             <div className="flex items-center justify-center h-60 border-2 border-dashed rounded-lg">
+                <p className="text-muted-foreground">Financial chart coming soon...</p>
+             </div>
           </CardContent>
         </Card>
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="font-headline">Upcoming Sessions</CardTitle>
             <CardDescription>
-              Here are the next few sessions on the schedule (mock data).
+              Here are the next few sessions on the schedule.
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {sessionsLoading ? (
+                 <div className="flex items-center justify-center h-48">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                 </div>
+            ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -174,20 +218,21 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {upcomingSessions.map((session) => (
+                {sessions && sessions.map((session) => (
                   <TableRow key={session.id}>
                     <TableCell>
-                      <div className="font-medium">{session.student}</div>
+                      <div className="font-medium">{getUserName(session.studentId)}</div>
                       <div className="hidden text-sm text-muted-foreground md:inline">
-                        with {session.teacher}
+                        with {getUserName(session.teacherId)}
                       </div>
                     </TableCell>
-                    <TableCell>{session.subject}</TableCell>
-                    <TableCell className="text-right">{session.time}</TableCell>
+                    <TableCell>{getCourseName(session.courseId)}</TableCell>
+                    <TableCell className="text-right">{format(session.startTime.toDate(), 'p')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+            )}
           </CardContent>
         </Card>
       </div>
