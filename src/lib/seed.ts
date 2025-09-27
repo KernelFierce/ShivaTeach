@@ -97,9 +97,17 @@ export async function seedAllData() {
         console.log(`Auth user ${email} already exists. Skipping creation.`);
       } catch (error: any) {
         // If user does not exist, create them
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/email-already-in-use') {
-          await createUserWithEmailAndPassword(auth, email, 'password');
-          console.log(`Created auth user for ${email}`);
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+          try {
+            await createUserWithEmailAndPassword(auth, email, 'password');
+            console.log(`Created auth user for ${email}`);
+          } catch (createError: any) {
+             if (createError.code === 'auth/email-already-in-use') {
+                console.log(`Auth user ${email} already exists. Skipping creation.`);
+             } else {
+                 throw createError;
+             }
+          }
         } else {
             // Re-throw other auth errors
             throw error;
@@ -270,6 +278,9 @@ export async function seedAllData() {
     // 7. Commit all writes to the database
     console.log('Committing all changes...');
     await batch.commit();
+
+    // Sign out to ensure a clean state after seeding
+    await auth.signOut();
 
     console.log('--- Database Seed Successful ---');
     return { success: true, message: 'Database seeded successfully!' };
