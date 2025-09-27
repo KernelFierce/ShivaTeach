@@ -39,6 +39,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SubmitAssignmentDialog } from "./submit-assignment-dialog";
 
 interface SessionRef {
     id: string;
@@ -47,7 +48,7 @@ interface SessionRef {
 }
 
 interface Session {
-    id: string;
+    id:string;
     startTime: Timestamp;
     courseId: string;
     teacherId: string;
@@ -63,13 +64,14 @@ interface TenantUser {
     name: string;
 }
 
-interface Assignment {
+export interface Assignment {
     id: string;
     title: string;
     courseId: string;
     dueDate: Timestamp;
     grade?: number;
     submissionFileUrl?: string;
+    courseName?: string;
 }
 
 export default function StudentDashboardPage() {
@@ -80,6 +82,8 @@ export default function StudentDashboardPage() {
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
+  const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
 
   const sessionRefsQueryRef = useMemoFirebase(() => {
     if (!firestore || !tenantId || !user) return null;
@@ -164,114 +168,138 @@ export default function StudentDashboardPage() {
     }
   }
 
+  const handleSubmitClick = (assignment: Assignment) => {
+    setSelectedAssignment({
+      ...assignment,
+      courseName: getCourseName(assignment.courseId),
+    });
+    setIsSubmitDialogOpen(true);
+  };
+
   const isLoading = sessionsLoading || coursesLoading || usersLoading || sessionRefsLoading || assignmentsLoading;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-4">
-        <Avatar className="h-16 w-16">
-            {avatar && <AvatarImage src={avatar.imageUrl} data-ai-hint={avatar.imageHint} />}
-            <AvatarFallback>{user?.displayName?.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div>
-            <h1 className="text-3xl font-bold font-headline">Welcome, {user?.displayName?.split(' ')[0]}!</h1>
-            <p className="text-muted-foreground">Here's your academic snapshot.</p>
+    <>
+      {selectedAssignment && (
+          <SubmitAssignmentDialog 
+              isOpen={isSubmitDialogOpen}
+              onOpenChange={setIsSubmitDialogOpen}
+              assignment={selectedAssignment}
+              tenantId={tenantId}
+              studentId={user?.uid || ''}
+          />
+      )}
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16">
+              {avatar && <AvatarImage src={avatar.imageUrl} data-ai-hint={avatar.imageHint} />}
+              <AvatarFallback>{user?.displayName?.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div>
+              <h1 className="text-3xl font-bold font-headline">Welcome, {user?.displayName?.split(' ')[0]}!</h1>
+              <p className="text-muted-foreground">Here's your academic snapshot.</p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="lg:col-span-4">
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" />
-                Upcoming Sessions
-            </CardTitle>
-            <CardDescription>
-              Your next scheduled tutoring classes.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-                <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
-            ) : sessions && sessions.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Subject</TableHead>
-                  <TableHead className="text-right">Teacher</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell className="font-medium">{format(session.startTime.toDate(), 'MMM d, yyyy')}</TableCell>
-                    <TableCell>{format(session.startTime.toDate(), 'p')}</TableCell>
-                    <TableCell>{getCourseName(session.courseId)}</TableCell>
-                    <TableCell className="text-right">{getUserName(session.teacherId)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            ) : (
-              <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                  <p className="text-muted-foreground text-center">No upcoming sessions scheduled.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="font-headline flex items-center gap-2">
-                <BookCheck className="h-5 w-5" />
-                Assignments
-            </CardTitle>
-            <CardDescription>
-              Keep track of your homework and submissions.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-             {isLoading ? (
-                <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
-            ) : assignments && assignments.length > 0 ? (
-            <Table>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="lg:col-span-4">
+            <CardHeader>
+              <CardTitle className="font-headline flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5" />
+                  Upcoming Sessions
+              </CardTitle>
+              <CardDescription>
+                Your next scheduled tutoring classes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                  <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
+              ) : sessions && sessions.length > 0 ? (
+              <Table>
                 <TableHeader>
-                    <TableRow>
-                        <TableHead>Title</TableHead>
-                        <TableHead>Due</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Subject</TableHead>
+                    <TableHead className="text-right">Teacher</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {assignments.map(assignment => {
-                        const status = getAssignmentStatus(assignment);
-                        return (
-                            <TableRow key={assignment.id}>
-                                <TableCell className="font-medium">{assignment.title}</TableCell>
-                                <TableCell>{format(assignment.dueDate.toDate(), 'MMM d')}</TableCell>
-                                <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(status)}>{status}</Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="outline" size="sm" disabled={status !== 'Pending'}>
-                                        Submit
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        )
-                    })}
+                  {sessions.map((session) => (
+                    <TableRow key={session.id}>
+                      <TableCell className="font-medium">{format(session.startTime.toDate(), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{format(session.startTime.toDate(), 'p')}</TableCell>
+                      <TableCell>{getCourseName(session.courseId)}</TableCell>
+                      <TableCell className="text-right">{getUserName(session.teacherId)}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
-            </Table>
-             ) : (
-              <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                  <p className="text-muted-foreground text-center">No assignments found.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </Table>
+              ) : (
+                <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <p className="text-muted-foreground text-center">No upcoming sessions scheduled.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="lg:col-span-3">
+            <CardHeader>
+              <CardTitle className="font-headline flex items-center gap-2">
+                  <BookCheck className="h-5 w-5" />
+                  Assignments
+              </CardTitle>
+              <CardDescription>
+                Keep track of your homework and submissions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                  <div className="flex items-center justify-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>
+              ) : assignments && assignments.length > 0 ? (
+              <Table>
+                  <TableHeader>
+                      <TableRow>
+                          <TableHead>Title</TableHead>
+                          <TableHead>Due</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead><span className="sr-only">Actions</span></TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {assignments.map(assignment => {
+                          const status = getAssignmentStatus(assignment);
+                          return (
+                              <TableRow key={assignment.id}>
+                                  <TableCell className="font-medium">{assignment.title}</TableCell>
+                                  <TableCell>{format(assignment.dueDate.toDate(), 'MMM d')}</TableCell>
+                                  <TableCell>
+                                      <Badge variant={getStatusBadgeVariant(status)}>{status}</Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        disabled={status !== 'Pending' && status !== 'Overdue'}
+                                        onClick={() => handleSubmitClick(assignment)}
+                                      >
+                                          Submit
+                                      </Button>
+                                  </TableCell>
+                              </TableRow>
+                          )
+                      })}
+                  </TableBody>
+              </Table>
+              ) : (
+                <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                    <p className="text-muted-foreground text-center">No assignments found.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
