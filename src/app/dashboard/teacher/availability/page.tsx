@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useTransition } from 'react';
 import {
   Card,
   CardContent,
@@ -14,7 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { PlusCircle, Trash2, Save, Loader2 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, query, where, writeBatch, getDocs, doc } from 'firebase/firestore';
 import { toast } from '@/hooks/use-toast';
 
 type TimeSlot = {
@@ -71,16 +72,12 @@ export default function AvailabilityPage() {
     return query(availabilityCollectionRef, where('teacherId', '==', user.uid));
   }, [availabilityCollectionRef, user?.uid]);
 
-  const { data: availabilityDocs, isLoading: docsLoading } = useCollection<AvailabilityDoc>(teacherAvailabilityQuery);
+  const { data: availabilityDocs, isLoading: docsLoading, error } = useCollection<AvailabilityDoc>(teacherAvailabilityQuery);
 
   useEffect(() => {
     if (!docsLoading) {
+      const newAvailability = JSON.parse(JSON.stringify(initialAvailability));
       if (availabilityDocs) {
-        const newAvailability: Availability = { ...initialAvailability };
-        daysOfWeek.forEach(day => {
-            newAvailability[day] = { isEnabled: false, slots: [] };
-        });
-
         availabilityDocs.forEach(doc => {
           const dayName = daysOfWeek[doc.dayOfWeek];
           if (dayName) {
@@ -92,8 +89,8 @@ export default function AvailabilityPage() {
             });
           }
         });
-        setAvailability(newAvailability);
       }
+      setAvailability(newAvailability);
       setInitialLoading(false);
     }
   }, [availabilityDocs, docsLoading]);
@@ -162,7 +159,7 @@ export default function AvailabilityPage() {
             if (isEnabled) {
                 const dayOfWeek = daysOfWeek.indexOf(day);
                 slots.forEach(slot => {
-                    const newDocRef = doc(availabilityCollectionRef);
+                    const newDocRef = doc(availabilityCollectionRef); // Create a new doc with a random ID
                     batch.set(newDocRef, {
                         teacherId: user.uid,
                         tenantId: tenantId,
@@ -196,6 +193,15 @@ export default function AvailabilityPage() {
 
   if (initialLoading) {
       return <div className="flex justify-center items-center h-96"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
+
+  if (error) {
+    return (
+      <div className="text-center text-destructive-foreground bg-destructive/80 p-4 rounded-md">
+        <p className="font-bold">Error loading availability:</p>
+        <p className="text-sm mt-2 font-mono">{error.message}</p>
+      </div>
+    );
   }
 
   return (
@@ -254,7 +260,7 @@ export default function AvailabilityPage() {
             <CardDescription>
                 Add specific dates when you are unavailable or have a different schedule than your weekly default.
             </CardDescription>
-        </Header>
+        </CardHeader>
         <CardContent>
             <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
                 <p className="text-muted-foreground text-center">Date override functionality coming soon...</p>
