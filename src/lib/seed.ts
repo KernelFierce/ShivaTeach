@@ -49,6 +49,14 @@ export async function seedAllData() {
 
     // 1. Clear Existing Data
     console.log('Clearing existing tenant subcollections...');
+    // A more robust solution would be to iterate through all user docs and clear their subcollections.
+    // For now, we manually list them for our known test users.
+    const userIdsToClear = (await getDocs(collection(db, `tenants/${TENANT_ID}/users`))).docs.map(d => d.id);
+    for (const userId of userIdsToClear) {
+        await clearCollection(db, `tenants/${TENANT_ID}/users/${userId}/sessionsAsStudent`);
+        await clearCollection(db, `tenants/${TENANT_ID}/users/${userId}/sessionsAsTeacher`);
+    }
+
     await clearCollection(db, `tenants/${TENANT_ID}/users`);
     await clearCollection(db, `tenants/${TENANT_ID}/subjects`);
     await clearCollection(db, `tenants/${TENANT_ID}/courses`);
@@ -56,12 +64,12 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
     await clearCollection(db, `tenants/${TENANT_ID}/availabilities`);
     await clearCollection(db, `tenants/${TENANT_ID}/assignments`);
-    // Note: We need a more robust way to clear nested subcollections in the future
+    await clearCollection(db, `tenants/${TENANT_ID}/invoices`);
+    await clearCollection(db, `tenants/${TENANT_ID}/payments`);
     
     console.log('Clearing root user collection...');
     await clearCollection(db, 'users');
-    // DO NOT CLEAR THE 'tenants' collection itself, as it deletes subcollections.
-    // We will update the tenant document instead.
+    // DO NOT CLEAR THE 'tenants' collection itself. Instead, update the document.
 
     // 2. Initialize a new Write Batch
     const batch = writeBatch(db);
@@ -261,8 +269,41 @@ export async function seedAllData() {
         batch.set(assignmentRef, assignment);
     });
 
+    // 10. Create Sample Invoices and Payments
+    console.log('Creating sample invoices and payments...');
+    const invoices = [
+        { 
+            studentId: student1.uid,
+            issueDate: Timestamp.fromDate(new Date(new Date().setDate(1))),
+            dueDate: Timestamp.fromDate(new Date(new Date().setDate(15))),
+            amount: 220,
+            status: 'Paid',
+        },
+        {
+            studentId: student1.uid,
+            issueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 1, 1))),
+            dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 1, 15))),
+            amount: 240,
+            status: 'Due',
+        },
+    ];
 
-    // 10. Commit all writes
+    const invoice1Ref = doc(collection(db, `tenants/${TENANT_ID}/invoices`));
+    batch.set(invoice1Ref, invoices[0]);
+    const invoice2Ref = doc(collection(db, `tenants/${TENANT_ID}/invoices`));
+    batch.set(invoice2Ref, invoices[1]);
+
+    const payment1Ref = doc(collection(db, `tenants/${TENANT_ID}/payments`));
+    batch.set(payment1Ref, {
+        invoiceId: invoice1Ref.id,
+        studentId: student1.uid,
+        paymentDate: Timestamp.fromDate(new Date(new Date().setDate(10))),
+        amount: 220,
+        method: 'Credit Card',
+    });
+
+
+    // 11. Commit all writes
     console.log('Committing all changes...');
     await batch.commit();
 
