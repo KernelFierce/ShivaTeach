@@ -53,7 +53,7 @@ We will build the application iteratively, focusing on one user role at a time. 
 - **Objective**: Create the tools tutors need to manage their daily work and interact with students.
 - **Features**:
     1.  **Availability Management**: ✅ Built the UI planner for teachers to set their weekly availability. Data is saved to and fetched from Firestore.
-    2.  **Communication Interface**: ✅ Implemented a static UI for teachers to communicate with students and parents.
+    2.  **Communication Interface**: ✅ Implemented a static UI for teachers to communicate with students and parents, now connected to live Firestore data.
 
 ### Sprint 3: Student & Parent Experience (Complete)
 - **Status**: ✅ Complete
@@ -75,17 +75,17 @@ We will build the application iteratively, focusing on one user role at a time. 
 This section outlines a high-level strategic review, establishing a clear path forward for building an enterprise-grade application.
 
 ### 1. Database & Architecture
-*   **Current Strength:** The multi-tenant data model in Firestore (`/tenants/{tenantId}/...`) is a robust and scalable foundation. The user model now supports a `roles` array, allowing for flexible, multi-role assignments. The session data model has been refactored for improved security by using per-user subcollections.
+*   **Current Strength:** The multi-tenant data model in Firestore (`/tenants/{tenantId}/...`) is a robust and scalable foundation. The user model now supports a `roles` array, allowing for flexible, multi-role assignments. The session and assignment data models have been refactored for improved security by using per-user subcollections.
 *   **Identified Weakness:** The current Firestore Security Rules are temporarily open for development. They are not yet suitable for a production environment.
 *   **Go-Forward Plan:** **Role-Based Access Control (RBAC)** must be implemented in `firestore.rules` before going live. For example, only users with the `OrganizationAdmin` or `Admin` role should be permitted to `list` documents in the `/tenants/{tenantId}/users` collection. This will be addressed in a dedicated "hardening" sprint.
 
 ### 2. UI/UX & Feature Parity
-*   **Current Strength:** The use of a modern component library (ShadCN) provides a professional and consistent look and feel. The application UI is now fully data-driven. Key administrative C.R.U.D. actions like adding and editing users are now implemented.
+*   **Current Strength:** The use of a modern component library (ShadCN) provides a professional and consistent look and feel. The application UI is now almost entirely data-driven. Key administrative C.R.U.D. actions like adding and editing users are now implemented.
 *   **Identified Weakness:** While "Add" and "Edit" are functional, "Delete" operations and more advanced management features are still missing for most data types (e.g., courses, leads).
 *   **Go-Forward Plan:** Future sprints will progressively add more C.R.U.D. capabilities as needed by each user role.
 
 ### 3. Development & Testing
-*   **Current Strength:** The project has a robust and isolated data seeding script (`/lib/seed.ts` accessible via the `/seed` page), which is excellent for creating a predictable database state for development and testing. All mock data has been eradicated. The script now correctly populates new data structures like per-user session references and teacher availabilities.
+*   **Current Strength:** The project has a robust and isolated data seeding script (`/lib/seed.ts` accessible via the `/seed` page), which is excellent for creating a predictable database state for development and testing. All mock data has been eradicated. The script now correctly populates new data structures like per-user session references, assignments, and conversations.
 *   **Go-Forward Plan:** The seed script will be maintained as the single source of truth for initial setup. All components will continue to fetch data exclusively from Firestore.
 
 ### 4. Quality Assurance & User Experience
@@ -112,14 +112,15 @@ This section documents the major milestones and feature integrations that have m
 
 ### Firestore Integration & Live Data
 - **All Mock Data Removed**: All static and mock data files and references have been completely removed from the project.
-- **Live Data on All Dashboards**: The Main Dashboard, Teacher Dashboard, Student Dashboard, Leads, and Courses pages are now all 100% powered by live data from Firestore.
+- **Live Data on All Dashboards**: The Main Dashboard, Teacher Dashboard, Student Dashboard, Parent Portal, Leads, Courses, and SuperAdmin pages are now all 100% powered by live data from Firestore.
 - **Functional Admin Pages**:
     - **User Management**: Admins can now add and edit users directly from the UI. User creation and updates are handled securely on the client-side using batch writes.
     - **Organization Settings**: The settings page is now fully active, allowing admins to fetch and update tenant-level configuration in real-time.
     - **Course Management**: The courses page now displays a live, structured view of all subjects and their associated courses from the database.
 - **Teacher Availability**: Teachers can now set and save their weekly availability, with data being written to and read from Firestore.
 - **Student & Parent Portals**: The student dashboard displays live assignment and session data. The parent portal displays live invoice and payment data. The full assignment submission workflow is implemented with Firebase Storage.
-- **On-Demand Data Seeding**: An isolated, safe seeding page has been re-established at `/seed`. This allows an administrator to reliably wipe and populate all necessary collections with a comprehensive set of sample data in one click. The script has been updated to support the latest data models, including per-user session references and teacher availabilities.
+- **Live SuperAdmin Dashboard**: The SuperAdmin dashboard now displays live platform-wide statistics.
+- **On-Demand Data Seeding**: An isolated, safe seeding page has been re-established at `/seed`. This allows an administrator to reliably wipe and populate all necessary collections with a comprehensive set of sample data in one click. The script has been updated to support the latest data models, including per-user session references, assignments, and conversations.
 
 ### Security
 - **Secure Data Fetching**: Implemented a more secure data model for sessions and assignments by creating per-user subcollections (`sessionsAsStudent`, `sessionsAsTeacher`, `assignments`) to prevent users from being able to query all sensitive data in the system.
