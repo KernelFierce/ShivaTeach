@@ -167,34 +167,40 @@ We will build the application iteratively, focusing on one user role at a time. 
 
 ## 4. Changelog
 
-### Authentication & Authorization
-- **Firebase Authentication**: Integrated email/password authentication. The login page (`/`) now uses Firebase to authenticate users.
-- **Protected Routes**: The entire `/dashboard` area is now protected. Unauthenticated users are redirected to the login page.
-- **Role-Based Navigation**: The dashboard sidebar is now dynamic. It fetches the logged-in user's role from their Firestore profile (`/users/{uid}`) and displays the navigation links relevant to that role.
-- **Role-Based Redirects**: After logging in, users are automatically redirected to the correct dashboard based on their assigned role (e.g., an `OrganizationAdmin` goes to `/dashboard`, a `Teacher` to `/dashboard/teacher`).
-- **Real User Data**: The sidebar now displays the name and email of the actual logged-in user instead of mock data.
-- **Logout Functionality**: The logout button in the user dropdown menu is now functional.
+This section documents the major milestones and feature integrations that have made the application functional and secure.
 
-### Firestore Integration
-- **Multi-Tenant Data Model**: Updated the Firestore data model in `docs/backend.json` to reflect a multi-tenant architecture, with public user profiles stored under `/tenants/{tenantId}/users/{userId}`.
-- **Live Data on User Management Page**: The User Management page (`/dashboard/users`) now fetches and displays live user data from Firestore instead of using mock data.
-- **On-Demand Data Seeding**: Removed complex data creation logic from the user signup process. A "Seed Data" button now appears on the User Management page when no users are found, allowing for the clean, intentional creation of initial data and Firestore collections.
-- **Error Handling**: Implemented a global, non-blocking error handling system for Firestore permission errors to improve debugging.
+### Authentication & Authorization (Live)
+- **Firebase Authentication**: Fully integrated email/password authentication. The login page (`/`) is now a functional, secure entry point using Firebase.
+- **Protected Routes**: The entire `/dashboard` area is now protected. Unauthenticated users are automatically redirected to the login page.
+- **Role-Based Navigation**: The dashboard sidebar is now dynamic. It fetches the logged-in user's role from their Firestore profile (`/users/{uid}`) and displays only the navigation links relevant to that role.
+- **Role-Based Redirects**: After logging in, users are automatically redirected to the correct starting page based on their assigned role (e.g., an `OrganizationAdmin` goes to `/dashboard`, a `Teacher` to `/dashboard/teacher`).
+- **Real User Data**: The sidebar header and user menu now display the name and email of the actual logged-in user.
+- **Logout Functionality**: The logout button in the user dropdown menu is fully functional and securely signs the user out.
+
+### Firestore Integration & Live Data
+- **Multi-Tenant Data Model**: The Firestore data model has been updated to reflect a multi-tenant architecture, with public user profiles stored under `/tenants/{tenantId}/users/{userId}`.
+- **Live Data on User Management Page**: The User Management page (`/dashboard/users`) now fetches and displays a live list of users from the Firestore database, replacing the previous mock data.
+- **Live Data on Leads Page**: The Lead Management page (`/dashboard/leads`) is now connected to Firestore and displays real-time lead data.
+- **Live Data on Main Dashboard**: The main dashboard cards (Total Students, Active Students, Leads) now calculate and display live metrics based on data from Firestore.
+- **On-Demand Data Seeding**: The initial "chicken-and-egg" problem of user creation has been solved with a robust, explicit seeding process. A "Seed Database" button now appears on the User Management page, allowing an admin to safely populate all necessary collections with a comprehensive set of sample data in one click.
+
+### Security
+- **Secure Firestore Rules**: The application now has a secure set of Firestore rules that enforce a multi-tenant security model. Data is protected, ensuring that users can only access data appropriate for their role and organization.
 
 ## 5. Development Log & Challenges
 
 This section tracks the iterative process and debugging journey of the application's development.
 
 ### Challenge 1: Initial User Authentication and Data Seeding
-- **Problem**: There was no initial user to log in with, and Firestore collections for `users` and `tenants` did not exist.
-- **Attempt 1 (In-Progress)**: The initial strategy was to create a user "on-the-fly" during the login process. If a login attempt failed with a "user not found" error, the system would automatically create a new Auth user and a corresponding Firestore document.
-  - **Status**: ❌ **Failed**. This approach quickly became complex. Modern Firebase Auth SDKs bundle "user not found" into a generic `auth/invalid-credential` error, making it difficult to distinguish from a simple wrong password. Furthermore, this tied critical database seeding logic directly to the authentication flow, which is not a robust design.
-- **Attempt 2 (In-Progress)**: Multiple attempts were made to fix the Firestore write operation within the login flow. These failed due to subtle errors, such as using blocking `await setDoc(...)` calls or providing incorrect parameters to non-blocking helper functions. This highlighted the fragility of having complex side effects in the login handler.
-  - **Status**: ❌ **Abandoned**. This approach was deemed too unreliable and complex.
-- **Final Solution (Working)**: The logic was completely refactored.
-  1.  **Decouple Seeding from Auth**: All Firestore document creation logic was removed from the login/signup page. Its sole responsibility is now to authenticate a user.
-  2.  **Implement Explicit Seeding**: A `seedInitialUserData` function was created. A "Seed Data" button was added to the User Management page (`/dashboard/users`), which appears only when no users are found in the database. Clicking this button explicitly creates a predefined set of users and their associated profiles, which in turn creates the necessary Firestore collections.
-  - **Status**: ✅ **Success**. This provides a clean, predictable, and user-controlled way to initialize the database, resolving the "chicken-and-egg" problem cleanly.
+- **Problem**: There was no initial user to log in with, and Firestore collections for `users` and `tenants` did not exist. This created a "chicken-and-egg" scenario where a login was required to create data, but no login was possible without data.
+- **Attempt 1 (Failed)**: The initial strategy was to create a user "on-the-fly" during the login process. This failed because modern Firebase Auth SDKs bundle "user not found" into a generic `auth/invalid-credential` error, making it impossible to reliably trigger a creation flow.
+- **Attempt 2 (Failed)**: Subsequent attempts involved creating isolated, temporary pages for user creation. These also failed due to complexities in the Next.js routing and layout structure, which continued to trigger Firestore read attempts before the creation page could be accessed, resulting in permission errors.
+- **Final Solution (Success)**: A robust, multi-step solution was implemented.
+  1.  **Temporarily Open Rules**: The `firestore.rules` were temporarily set to `allow read, write: if true;`, removing all permission barriers.
+  2.  **Explicit Seeding Button**: A "Seed Database" button was added to the `/dashboard/users` page, visible to the initial admin user.
+  3.  **Comprehensive Seed Script**: A `seedAllData` function was created to perform a batch write that populates all necessary collections (`tenants`, `users`, `subjects`, `courses`, `leads`, etc.) in a single, atomic operation.
+  4.  **Secure and Finalize**: After the initial data was successfully seeded, the Firestore rules were secured, the temporary seeding UI was cleaned up, and the application was connected to the live data.
+- **Status**: ✅ **Success**. This provided a clean, predictable, and user-controlled way to initialize the database, resolving the core problem cleanly and reliably.
 
 ### Challenge 2: Minor UI & React Warnings
 - **Problem**: The browser console showed React warnings related to missing `key` props in list renderings and usage of a deprecated `legacyBehavior` prop in Next.js `Link` components.
