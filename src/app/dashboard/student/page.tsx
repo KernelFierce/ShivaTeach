@@ -19,7 +19,9 @@ import {
 import {
   BookCheck,
   CalendarDays,
-  Loader2
+  Loader2,
+  Sparkles,
+  Lightbulb,
 } from "lucide-react"
 import {
   collection,
@@ -32,7 +34,7 @@ import {
   getDoc
 } from 'firebase/firestore';
 import { format } from 'date-fns';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition, useMemo } from "react";
 
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -40,6 +42,16 @@ import { PlaceHolderImages } from "@/lib/placeholder-images"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SubmitAssignmentDialog } from "./submit-assignment-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { suggestSessionTimes } from "@/ai/flows/smart-schedule-flow";
+import type { SmartScheduleOutput } from "@/ai/flows/smart-schedule-flow";
 
 interface SessionRef {
     id: string;
@@ -62,6 +74,7 @@ interface Course {
 interface TenantUser {
     id: string;
     name: string;
+    roles: string[];
 }
 
 export interface Assignment {
@@ -84,6 +97,14 @@ export default function StudentDashboardPage() {
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [isSubmitDialogOpen, setIsSubmitDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+
+  // State for Smart Scheduler
+  const [isScheduling, startScheduling] = useTransition();
+  const [scheduleRequest, setScheduleRequest] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState('');
+  const [scheduleSuggestion, setScheduleSuggestion] = useState<SmartScheduleOutput | null>(null);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+
 
   const sessionRefsQueryRef = useMemoFirebase(() => {
     if (!firestore || !tenantId || !user) return null;
@@ -132,7 +153,6 @@ export default function StudentDashboardPage() {
 
   const assignmentsQueryRef = useMemoFirebase(() => {
     if (!firestore || !tenantId || !user) return null;
-    // Secure query: Fetches assignments only from the current user's subcollection.
     return query(
       collection(firestore, `tenants/${tenantId}/users/${user.uid}/assignments`),
       orderBy('dueDate')
@@ -143,10 +163,22 @@ export default function StudentDashboardPage() {
   const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
   const { data: assignments, isLoading: assignmentsLoading, manualRefresh: refreshAssignments } = useCollection<Assignment>(assignmentsQueryRef);
 
+  const studentTeachers = useMemo(() => {
+    if (!sessions || !users) return [];
+    const teacherIds = new Set(sessions.map(s => s.teacherId));
+    return users.filter(u => teacherIds.has(u.id));
+  }, [sessions, users]);
+
+  useEffect(() => {
+    // Auto-select the first teacher if not already selected
+    if (studentTeachers.length > 0 && !selectedTeacher) {
+      setSelectedTeacher(studentTeachers[0].id);
+    }
+  }, [studentTeachers, selectedTeacher]);
+
   const handleDialogChange = (isOpen: boolean) => {
     setIsSubmitDialogOpen(isOpen);
     if (!isOpen) {
-      // When the dialog closes, refresh the assignments list to show the new status
       refreshAssignments();
     }
   }
@@ -183,6 +215,24 @@ export default function StudentDashboardPage() {
     });
     setIsSubmitDialogOpen(true);
   };
+  
+  const handleFindTimes = () => {
+    if (!scheduleRequest || !selectedTeacher) return;
+    setScheduleSuggestion(null);
+    setScheduleError(null);
+    startScheduling(async () => {
+      try {
+        const result = await suggestSessionTimes({
+          teacherId: selectedTeacher,
+          studentRequest: scheduleRequest,
+        });
+        setScheduleSuggestion(result);
+      } catch (error) {
+        console.error("Error suggesting times:", error);
+        setScheduleError("Sorry, I couldn't find any available times. Please try rephrasing your request.");
+      }
+    });
+  };
 
   const isLoading = sessionsLoading || coursesLoading || usersLoading || sessionRefsLoading || assignmentsLoading;
 
@@ -209,7 +259,87 @@ export default function StudentDashboardPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        <div className="grid gap-6 md:grid-cols-1">
+            <Card>
+            <CardHeader>
+                <CardTitle className="font-headline flex items-center gap-2">
+                    <Lightbulb className="h-5 w-5 text-accent" />
+                    Smart Reschedule Request
+                </CardTitle>
+                <CardDescription>
+                    Need to move a session? Ask our AI assistant to find a new time.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="sm:col-span-2 space-y-2">
+                        <label className="text-sm font-medium">Your Request</label>
+                        <Textarea
+                            placeholder="e.g., 'Can we meet next Tuesday afternoon instead of Wednesday?'"
+                            value={scheduleRequest}
+                            onChange={(e) => setScheduleRequest(e.target.value)}
+                            disabled={isScheduling}
+                            className="h-24"
+                        />
+                    </div>
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium">Teacher</label>
+                        <Select
+                          value={selectedTeacher}
+                          onValueChange={setSelectedTeacher}
+                          disabled={isScheduling || studentTeachers.length === 0}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a teacher..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {studentTeachers.map(teacher => (
+                                    <SelectItem key={teacher.id} value={teacher.id}>
+                                        {teacher.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <Button onClick={handleFindTimes} disabled={isScheduling || !scheduleRequest || !selectedTeacher}>
+                    {isScheduling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isScheduling ? "Finding Times..." : "Find Times"}
+                </Button>
+
+                {scheduleSuggestion && (
+                    <Card className="bg-muted/50">
+                    <CardHeader>
+                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-accent" />
+                          Suggested Times
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <p className="text-sm">{scheduleSuggestion.responseMessage}</p>
+                        <div className="flex flex-wrap gap-2">
+                            {scheduleSuggestion.suggestedTimes.map((time, index) => (
+                                <Badge key={index} variant="secondary" className="text-base">
+                                  {time}
+                                </Badge>
+                            ))}
+                        </div>
+                    </CardContent>
+                    </Card>
+                )}
+                 {scheduleError && (
+                    <Card className="bg-destructive/10 border-destructive">
+                        <CardContent className="p-4">
+                            <p className="text-sm text-destructive-foreground">{scheduleError}</p>
+                        </CardContent>
+                    </Card>
+                 )}
+            </CardContent>
+            </Card>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
           <Card className="lg:col-span-4">
             <CardHeader>
               <CardTitle className="font-headline flex items-center gap-2">
@@ -311,3 +441,5 @@ export default function StudentDashboardPage() {
     </>
   )
 }
+
+    
