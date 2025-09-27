@@ -95,7 +95,7 @@ export default function StudentDashboardPage() {
     );
   }, [firestore, tenantId, user]);
 
-  const { data: sessionRefs, isLoading: sessionRefsLoading } = useCollection<SessionRef>(sessionRefsQueryRef);
+  const { data: sessionRefs, isLoading: sessionRefsLoading, manualRefresh: refreshSessionRefs } = useCollection<SessionRef>(sessionRefsQueryRef);
 
   useEffect(() => {
     async function fetchSessions() {
@@ -141,7 +141,15 @@ export default function StudentDashboardPage() {
   
   const { data: courses, isLoading: coursesLoading } = useCollection<Course>(coursesCollectionRef);
   const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
-  const { data: assignments, isLoading: assignmentsLoading } = useCollection<Assignment>(assignmentsQueryRef);
+  const { data: assignments, isLoading: assignmentsLoading, manualRefresh: refreshAssignments } = useCollection<Assignment>(assignmentsQueryRef);
+
+  const handleDialogChange = (isOpen: boolean) => {
+    setIsSubmitDialogOpen(isOpen);
+    if (!isOpen) {
+      // When the dialog closes, refresh the assignments list to show the new status
+      refreshAssignments();
+    }
+  }
 
   const getCourseName = (courseId: string) => courses?.find(c => c.id === courseId)?.name || '...';
   const getUserName = (userId: string) => users?.find(u => u.id === userId)?.name || '...';
@@ -183,7 +191,7 @@ export default function StudentDashboardPage() {
       {selectedAssignment && (
           <SubmitAssignmentDialog 
               isOpen={isSubmitDialogOpen}
-              onOpenChange={setIsSubmitDialogOpen}
+              onOpenChange={handleDialogChange}
               assignment={selectedAssignment}
               tenantId={tenantId}
               studentId={user?.uid || ''}

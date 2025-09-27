@@ -6,6 +6,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
+import { getFirestore, doc, updateDoc } from 'firebase/firestore';
+
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -29,9 +37,7 @@ import { toast } from '@/hooks/use-toast';
 import type { Assignment } from './page';
 
 const submitAssignmentSchema = z.object({
-  file: z
-    .any()
-    .refine((files) => files?.length === 1, 'File is required.'),
+  file: z.instanceof(FileList).refine((files) => files?.length === 1, 'File is required.'),
   comments: z.string().optional(),
 });
 
@@ -50,34 +56,62 @@ export function SubmitAssignmentDialog({
   onOpenChange,
   assignment,
   tenantId,
-  studentId
+  studentId,
 }: SubmitAssignmentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<SubmitAssignmentFormValues>({
     resolver: zodResolver(submitAssignmentSchema),
   });
-  
-  // This is a placeholder. In a real implementation, this would
-  // upload the file to Firebase Storage and then update the Firestore document.
+
   const onSubmit = async (values: SubmitAssignmentFormValues) => {
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const file = values.file[0];
+    if (!file) return;
 
-    console.log('Form Values:', values);
-    console.log('Uploading file for assignment:', assignment.id);
-    
-    toast({
-      title: 'Submission Received!',
-      description: `Your work for "${assignment.title}" has been submitted.`,
-    });
+    const storage = getStorage();
+    const firestore = getFirestore();
 
-    setIsSubmitting(false);
-    onOpenChange(false);
-    form.reset();
+    try {
+      // 1. Upload file to Firebase Storage
+      const storagePath = `tenants/${tenantId}/assignments/${studentId}/${assignment.id}/${file.name}`;
+      const storageRef = ref(storage, storagePath);
+      const uploadResult = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(uploadResult.ref);
+
+      // 2. Update Firestore document with the URL
+      const assignmentDocRef = doc(
+        firestore,
+        `tenants/${tenantId}/users/${studentId}/assignments`,
+        assignment.id
+      );
+      await updateDoc(assignmentDocRef, {
+        submissionFileUrl: downloadURL,
+        submissionComments: values.comments || '',
+        submittedAt: new Date(),
+      });
+
+      toast({
+        title: 'Submission Received!',
+        description: `Your work for "${assignment.title}" has been submitted.`,
+      });
+
+      onOpenChange(false);
+      form.reset();
+    } catch (error) {
+      console.error('Error submitting assignment:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Submission Failed',
+        description:
+          'There was a problem uploading your file. Please try again.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+
+  const fileRef = form.register("file");
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -98,12 +132,12 @@ export function SubmitAssignmentDialog({
                   <FormLabel>Assignment File</FormLabel>
                   <FormControl>
                     <div className="relative">
-                        <Paperclip className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input 
-                            type="file" 
-                            className="pl-8" 
-                            onChange={(e) => field.onChange(e.target.files)}
-                        />
+                      <Paperclip className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="file"
+                        className="pl-8"
+                        {...fileRef}
+                      />
                     </div>
                   </FormControl>
                   <FormMessage />
