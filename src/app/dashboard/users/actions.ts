@@ -74,7 +74,10 @@ export async function createNewUser(params: CreateNewUserParams) {
       errorMessage = 'This email address is already in use by another account.';
     } else if (error.code === 'auth/invalid-password') {
       errorMessage = 'The password must be at least 8 characters long.';
+    } else if (error.message) {
+      errorMessage = error.message;
     }
+    
     console.error('Error creating new user:', error);
     return { error: errorMessage };
   }
