@@ -138,6 +138,7 @@ export async function seedAllData() {
 
     const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', ['SuperAdmin'], 'SuperAdmin');
     const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
+    const ankur = await createUser('ankur@kakkar.com', 'Ankur Kakkar', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
     const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], 'Teacher', TENANT_ID);
     const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student'], 'Student', TENANT_ID);
     const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], 'Student', TENANT_ID);
