@@ -106,7 +106,7 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
     *   **Academic Oversight (Read-Only)**: View the selected child's schedule, grades, and attendance.
     *   **Communication**: Automatically included in all teacher-student conversations. Ability to initiate a private, one-on-one conversation with a teacher.
 
-## 3. Development Plan: Role-Based Sprints
+## 4. Development Plan: Role-Based Sprints
 
 We will build the application iteratively, focusing on one user role at a time. Each "sprint" will deliver the core pages and UI for a specific role.
 
@@ -149,7 +149,7 @@ We will build the application iteratively, focusing on one user role at a time. 
 
 ### Sprint 4: Parent Portal
 - **Status**: ⏳ To Do
-- **Objective**: Create the portal for parents to manage financials and monitor academic progress.
+-Objective**: Create the portal for parents to manage financials and monitor academic progress.
 - **Features**:
     1.  **Parent Dashboard & Financials**: Build the UI for parents to view and pay invoices and see transaction history.
     2.  **Child Oversight**: Create the read-only view of their child's schedule, grades, and attendance.
@@ -159,7 +159,35 @@ We will build the application iteratively, focusing on one user role at a time. 
 - **SuperAdmin Features**: Implement the platform-level management tools.
 - **Advanced Features**: Integrate Genkit for AI-powered features like smart scheduling and automated summaries.
 
-## 4. Changelog
+## 5. Strategic Review & Go-Forward Plan (As of Current Session)
+
+This section outlines a high-level strategic review based on the initial prototype and the `TutorLMS` repository, establishing a clear path forward for building an enterprise-grade application.
+
+### 1. Database & Architecture
+*   **Current Strength:** The multi-tenant data model in Firestore (`/tenants/{tenantId}/...`) is a robust and scalable foundation.
+*   **Identified Weakness:** The current Firestore Security Rules are too permissive for a production environment. They allow any authenticated user to `read` all data within a tenant, which could expose sensitive information (e.g., a student could theoretically query the entire user list).
+*   **Go-Forward Plan:** Implement stricter, **Role-Based Access Control (RBAC)** within the `firestore.rules`. For example, only users with the `OrganizationAdmin` or `Admin` role should be permitted to `list` documents in the `/tenants/{tenantId}/users` collection. This is a critical next step for data security.
+
+### 2. UI/UX & Feature Parity
+*   **Current Strength:** The use of a modern component library (ShadCN) provides a professional and consistent look and feel.
+*   **Identified Weakness:** The application's UI is largely read-only. Key administrative actions like editing and deleting records are missing, limiting its utility. The `TutorLMS` prototype, by contrast, demonstrated this C.R.U.D. (Create, Read, Update, Delete) capability.
+*   **Go-Forward Plan:** Prioritize the implementation of **update and delete functionalities**. The immediate next feature will be to add an "Edit User" capability on the User Management page. This will include a dialog to modify a user's role and status, providing a more complete administrative experience.
+
+### 3. Development & Testing
+*   **Current Strength:** The project includes a dedicated seeding script (`/lib/seed.ts`), which is excellent for creating a predictable database state for development and testing.
+*   **Identified Weakness:** The codebase still contains remnants of mock data (`/lib/mock-data.ts`), which creates a dual source of truth and complicates testing. The seed script also used unrealistic data (e.g., "Inactive User" as a name).
+*   **Go-Forward Plan:** Systematically **eradicate all mock data files and references**. All components will be refactored to fetch data exclusively from Firestore. The seed script has been updated to use more realistic data and will be maintained as the single source of truth for initial setup.
+
+### 4. Quality Assurance & User Experience
+*   **Current Strength:** The application has a clean, well-organized codebase.
+*   **Identified Weakness:** There is a lack of immediate user feedback for data operations. When an admin saves a setting or updates a record, there is no visual confirmation that the action was successful or if an error occurred.
+*   **Go-Forward Plan:** Implement a consistent feedback mechanism for all data mutations. The `Toast` component will be used to provide non-intrusive notifications for success ("Settings Saved!") and failure ("Error: Could not update user") events, dramatically improving the user experience.
+
+---
+
+This strategic plan will guide our upcoming development sprints, ensuring we are not just adding features, but building a secure, reliable, and user-friendly platform.
+
+## 6. Changelog
 
 This section documents the major milestones and feature integrations that have made the application functional and secure.
 
@@ -181,7 +209,7 @@ This section documents the major milestones and feature integrations that have m
 ### Security
 - **Secure Firestore Rules**: The application now has a secure set of Firestore rules that enforce a multi-tenant security model. Data is protected, ensuring that users can only access data appropriate for their role and organization.
 
-## 5. Development Log & Challenges
+## 7. Development Log & Challenges
 
 This section tracks the iterative process and debugging journey of the application's development.
 

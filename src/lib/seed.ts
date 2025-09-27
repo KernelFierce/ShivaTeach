@@ -179,7 +179,7 @@ export async function seedAllData() {
     );
      const inactiveUser = await createUser(
       'inactive@tutorhub.com',
-      'Inactive User',
+      'Bob Smith',
       'Student',
       TENANT_ID,
       'Inactive'
