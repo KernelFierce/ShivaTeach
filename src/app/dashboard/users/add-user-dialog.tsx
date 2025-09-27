@@ -83,7 +83,7 @@ export function AddUserDialog({
         name: values.name,
         email: values.email,
         password: values.password,
-        role: values.role as UserRole,
+        role: values.role,
       });
 
       if (result.error) {
