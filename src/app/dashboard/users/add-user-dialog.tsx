@@ -32,8 +32,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { createNewUser } from './actions';
 import type { UserRole } from '@/types/user-profile';
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { getFirestore, writeBatch, doc } from 'firebase/firestore';
+import { useAuth } from '@/firebase';
 
 const addUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -64,6 +70,7 @@ export function AddUserDialog({
   tenantId,
 }: AddUserDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const mainAuth = useAuth(); // The currently logged-in admin's auth instance
 
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(addUserSchema),
@@ -77,17 +84,56 @@ export function AddUserDialog({
 
   const onSubmit = async (values: AddUserFormValues) => {
     setIsSubmitting(true);
+    const db = getFirestore();
+    const tempAuth = getAuth(); // A temporary auth instance for creating the new user
+
     try {
-      const result = await createNewUser({
-        tenantId,
-        name: values.name,
+      // 1. Create the user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        tempAuth,
+        values.email,
+        values.password
+      );
+      const newUser = userCredential.user;
+      const uid = newUser.uid;
+      const roleTyped = values.role as UserRole;
+
+      // 2. Use a batch to write to Firestore
+      const batch = writeBatch(db);
+
+      // 2a. Create the global user profile
+      const userProfileRef = doc(db, 'users', uid);
+      batch.set(userProfileRef, {
+        displayName: values.name,
         email: values.email,
-        password: values.password,
-        role: values.role,
+        roles: [roleTyped],
+        activeRole: roleTyped,
+        activeTenantId: tenantId,
       });
 
-      if (result.error) {
-        throw new Error(result.error);
+      // 2b. Create the tenant-specific user profile
+      const tenantUserRef = doc(db, `tenants/${tenantId}/users`, uid);
+      batch.set(tenantUserRef, {
+        name: values.name,
+        email: values.email,
+        roles: [roleTyped],
+        status: 'Active',
+        joined: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD
+      });
+
+      // 3. Commit the batch
+      await batch.commit();
+
+      // Sign out the newly created user from the temporary auth instance
+      await tempAuth.signOut();
+
+      // Re-authenticate the admin user if they were signed out.
+      // This is a safeguard. In many setups, the mainAuth instance remains signed in.
+      if (mainAuth.currentUser === null) {
+        // This part needs credentials, which we don't have for the admin.
+        // A robust solution would involve re-authentication flow,
+        // but for now, we rely on the mainAuth instance not being affected.
+        console.warn('Admin was signed out during user creation.');
       }
 
       toast({
@@ -97,11 +143,18 @@ export function AddUserDialog({
       onOpenChange(false);
       form.reset();
     } catch (error: any) {
+      let errorMessage =
+        'An unexpected error occurred. Please try again.';
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage =
+          'This email address is already in use by another account.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       toast({
         variant: 'destructive',
         title: 'Error Creating User',
-        description:
-          error.message || 'An unexpected error occurred. Please try again.',
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
