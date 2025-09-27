@@ -57,7 +57,7 @@ export default function SeedPage() {
             Database Seeding
           </CardTitle>
           <CardDescription>
-            Populate your Firestore database with a clean set of sample data. This is a one-time setup action.
+            Use this tool to wipe and repopulate your Firestore database with a clean set of sample data for testing.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
@@ -65,7 +65,7 @@ export default function SeedPage() {
             <AlertDialogTrigger asChild>
               <Button size="lg">
                 <Database className="mr-2 h-4 w-4" />
-                Seed Initial Data
+                Seed Sample Data
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
