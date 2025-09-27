@@ -49,7 +49,7 @@ const mockMessages = {
     { from: 'student', text: "Hi Mr. Chen, I'm having trouble with question 5 on the homework.", time: '1:30 PM' },
     { from: 'teacher', text: 'Hi Alex. No problem. Can you show me what you have so far?', time: '1:32 PM' },
     { from: 'student', text: 'I tried to solve for x but I keep getting a negative number.', time: '1:35 PM' },
-    { from: 'teacher', text: 'Ah, I see. Remember to distribute the negative sign to both terms inside the parentheses. That's a common mistake.', time: '1:40 PM' },
+    { from: 'teacher', text: 'Ah, I see. Remember to distribute the negative sign to both terms inside the parentheses. That\'s a common mistake.', time: '1:40 PM' },
     { from: 'student', text: "Oh, that's what I was missing! Thanks for the help with the algebra homework! I finally get it.", time: '1:42 PM' },
   ],
   '2': [
