@@ -58,16 +58,16 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/assignments`);
     // Note: We need a more robust way to clear nested subcollections in the future
     
-    console.log('Clearing root user and tenant collections...');
+    console.log('Clearing root user collection...');
     await clearCollection(db, 'users');
-    await clearCollection(db, 'tenants');
-
+    // DO NOT CLEAR THE 'tenants' collection itself, as it deletes subcollections.
+    // We will update the tenant document instead.
 
     // 2. Initialize a new Write Batch
     const batch = writeBatch(db);
 
-    // 3. Create Tenant
-    console.log('Creating tenant...');
+    // 3. Create or Update Tenant
+    console.log('Creating or updating tenant...');
     const tenantRef = doc(db, 'tenants', TENANT_ID);
     batch.set(tenantRef, {
       name: 'Acme Tutors Inc.',
