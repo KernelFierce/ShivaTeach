@@ -25,7 +25,7 @@ Our mission is to build a premier, multi-tenant tutoring platform that solves th
 We will build the application iteratively, focusing on one user role at a time. Each "sprint" will deliver the core pages and UI for a specific role.
 
 ### Sprint 0: Foundation & Live Data (Complete)
-- **Status**: ✅ Done
+- **Status**: ✅ Complete
 - **Objective**: Establish the core project structure, UI framework, authentication, security, and connect initial pages to a live, seeded Firestore database.
 - **Key Outcomes**:
     - Project setup with Next.js, ShadCN, and Tailwind.
@@ -38,21 +38,22 @@ We will build the application iteratively, focusing on one user role at a time. 
     - **Robust Data Seeding**: A safe, isolated seeding page (`/seed`) allows for the reliable population of the database with a comprehensive, clean set of sample data for all collections.
     - Secure, multi-tenant Firestore security rules are in place.
 
-### Sprint 1: OrganizationAdmin Core Functionality
-- **Status**: ⏳ In Progress
+### Sprint 1: OrganizationAdmin Core Functionality (Complete)
+- **Status**: ✅ Complete
 - **Objective**: Build the essential management features for the organization owner, enabling them to configure their business and manage users and courses.
 - **Features**:
-    1.  **Activate Settings Page**: Connect the Organization Settings UI to Firestore to allow fetching and updating of billing policies, default rates, etc.
-    2.  **Implement "Add/Edit User"**: Build the "Add User" feature (dialog, auth creation, Firestore writes) and "Edit User" (dialog to modify a user's roles and status).
-    3.  **Build Course Management UI**: Create the interface for viewing, adding, and managing subjects and courses within the organization.
-    4.  **Implement Toasts**: Add toast notifications for all create, update, and delete operations to provide user feedback.
+    1.  **Activate Settings Page**: ✅ Connected the Organization Settings UI to Firestore to allow fetching and updating of billing policies, default rates, etc.
+    2.  **Implement "Add/Edit User"**: ✅ Built the "Add User" feature (dialog, auth creation, Firestore writes) and "Edit User" (dialog to modify a user's roles and status).
+    3.  **Build Course Management UI**: ✅ Created the interface for viewing, adding, and managing subjects and courses within the organization.
+    4.  **Connect Leads Page**: ✅ The lead management page is now connected to live Firestore data.
+    5.  **Implement Toasts**: ✅ Added toast notifications for all create, update, and delete operations to provide user feedback.
 
 ### Sprint 2: Teacher Enablement
-- **Status**: ⏳ To Do
+- **Status**: ⏳ In Progress
 - **Objective**: Create the tools tutors need to manage their daily work and interact with students.
 - **Features**:
-    1.  **Availability Management**: Build the UI planner for teachers to set their weekly availability and manage one-off overrides. This data will be stored in Firestore.
-    2.  **Communication Interface**: Implement a basic messaging UI for teachers to communicate with students and parents.
+    1.  **Availability Management**: ✅ Built the UI planner for teachers to set their weekly availability. Data is saved to and fetched from Firestore.
+    2.  **Communication Interface**: ⏳ Implement a basic messaging UI for teachers to communicate with students and parents.
 
 ### Sprint 3: Student & Parent Experience
 - **Status**: ⏳ To Do
@@ -75,23 +76,23 @@ We will build the application iteratively, focusing on one user role at a time. 
 This section outlines a high-level strategic review, establishing a clear path forward for building an enterprise-grade application.
 
 ### 1. Database & Architecture
-*   **Current Strength:** The multi-tenant data model in Firestore (`/tenants/{tenantId}/...`) is a robust and scalable foundation. The user model now supports a `roles` array, allowing for flexible, multi-role assignments.
+*   **Current Strength:** The multi-tenant data model in Firestore (`/tenants/{tenantId}/...`) is a robust and scalable foundation. The user model now supports a `roles` array, allowing for flexible, multi-role assignments. The session data model has been refactored for improved security by using per-user subcollections.
 *   **Identified Weakness:** The current Firestore Security Rules are temporarily open for development. They are not yet suitable for a production environment.
 *   **Go-Forward Plan:** **Role-Based Access Control (RBAC)** must be implemented in `firestore.rules` before going live. For example, only users with the `OrganizationAdmin` or `Admin` role should be permitted to `list` documents in the `/tenants/{tenantId}/users` collection. This will be addressed in a dedicated "hardening" sprint.
 
 ### 2. UI/UX & Feature Parity
-*   **Current Strength:** The use of a modern component library (ShadCN) provides a professional and consistent look and feel. The application UI is now fully data-driven.
-*   **Identified Weakness:** The application's UI is largely read-only. Key administrative C.R.U.D. (Create, Read, Update, Delete) actions like adding, editing, and deleting records are missing.
-*   **Go-Forward Plan:** The highest priority is the implementation of **update and delete functionalities**. The immediate next feature will be to add "Add User" and "Edit User" capabilities on the User Management page. This will include a dialog to add a new user and another to modify an existing user's roles and status.
+*   **Current Strength:** The use of a modern component library (ShadCN) provides a professional and consistent look and feel. The application UI is now fully data-driven. Key administrative C.R.U.D. actions like adding and editing users are now implemented.
+*   **Identified Weakness:** While "Add" and "Edit" are functional, "Delete" operations and more advanced management features are still missing for most data types (e.g., courses, leads).
+*   **Go-Forward Plan:** Future sprints will progressively add more C.R.U.D. capabilities as needed by each user role.
 
 ### 3. Development & Testing
-*   **Current Strength:** The project now has a robust and isolated data seeding script (`/lib/seed.ts` accessible via the `/seed` page), which is excellent for creating a predictable database state for development and testing. All mock data has been eradicated.
+*   **Current Strength:** The project has a robust and isolated data seeding script (`/lib/seed.ts` accessible via the `/seed` page), which is excellent for creating a predictable database state for development and testing. All mock data has been eradicated. The script now correctly populates new data structures like per-user session references and teacher availabilities.
 *   **Go-Forward Plan:** The seed script will be maintained as the single source of truth for initial setup. All components will continue to fetch data exclusively from Firestore.
 
 ### 4. Quality Assurance & User Experience
 *   **Current Strength:** The application has a clean, well-organized codebase and is now fully data-driven.
-*   **Identified Weakness:** There is a lack of immediate user feedback for data operations.
-*   **Go-Forward Plan:** Implement a consistent feedback mechanism for all data mutations. The `Toast` component will be used to provide non-intrusive notifications for success ("Settings Saved!") and failure ("Error: Could not update user") events, dramatically improving the user experience.
+*   **Identified Weakness:** There is a lack of immediate user feedback for some data operations. Error reporting has been improved but can be more robust.
+*   **Go-Forward Plan:** Continue to implement a consistent feedback mechanism for all data mutations. The `Toast` component will be used to provide non-intrusive notifications for success ("Settings Saved!") and failure ("Error: Could not update user") events, dramatically improving the user experience.
 
 ---
 
@@ -112,8 +113,16 @@ This section documents the major milestones and feature integrations that have m
 
 ### Firestore Integration & Live Data
 - **All Mock Data Removed**: All static and mock data files and references have been completely removed from the project.
-- **Live Data on All Dashboards**: The Main Dashboard, Teacher Dashboard, and Student Dashboard are now all 100% powered by live data from Firestore, reflecting the actual state of the database.
-- **On-Demand Data Seeding**: An isolated, safe seeding page has been re-established at `/seed`. This allows an administrator to reliably wipe and populate all necessary collections with a comprehensive set of sample data in one click, resolving all previous "chicken-and-egg" issues.
+- **Live Data on All Dashboards**: The Main Dashboard, Teacher Dashboard, Student Dashboard, Leads, and Courses pages are now all 100% powered by live data from Firestore.
+- **Functional Admin Pages**:
+    - **User Management**: Admins can now add and edit users directly from the UI. User creation and updates are handled securely on the client-side using batch writes.
+    - **Organization Settings**: The settings page is now fully active, allowing admins to fetch and update tenant-level configuration in real-time.
+    - **Course Management**: The courses page now displays a live, structured view of all subjects and their associated courses from the database.
+- **Teacher Availability**: Teachers can now set and save their weekly availability, with data being written to and read from Firestore.
+- **On-Demand Data Seeding**: An isolated, safe seeding page has been re-established at `/seed`. This allows an administrator to reliably wipe and populate all necessary collections with a comprehensive set of sample data in one click. The script has been updated to support the latest data models, including per-user session references and teacher availabilities.
 
 ### Security
+- **Secure Data Fetching**: Implemented a more secure data model for sessions by creating per-user subcollections (`sessionsAsStudent`, `sessionsAsTeacher`) to prevent users from being able to query all sessions in the system.
 - **Secure Firestore Rules (In Progress)**: The application has a secure set of foundational Firestore rules. These will be hardened with full Role-Based Access Control (RBAC) before any production deployment.
+
+    
