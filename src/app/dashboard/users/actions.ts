@@ -45,7 +45,7 @@ export async function createNewUser(params: CreateNewUserParams) {
     batch.set(userProfileRef, {
       displayName: name,
       email: email,
-      roles: [roleTyped],
+      roles: [roleTyped], // Correctly use roles array
       activeRole: roleTyped,
       activeTenantId: tenantId,
     });
@@ -55,7 +55,7 @@ export async function createNewUser(params: CreateNewUserParams) {
     batch.set(tenantUserRef, {
       name: name,
       email: email,
-      roles: [roleTyped],
+      roles: [roleTyped], // Correctly use roles array
       status: 'Active',
       joined: new Date().toLocaleDateString('en-CA'), // YYYY-MM-DD format
     });
