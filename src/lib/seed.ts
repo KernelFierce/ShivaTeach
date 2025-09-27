@@ -54,6 +54,7 @@ export async function seedAllData() {
     await clearCollection(db, `tenants/${TENANT_ID}/courses`);
     await clearCollection(db, `tenants/${TENANT_ID}/sessions`);
     await clearCollection(db, `tenants/${TENANT_ID}/leads`);
+    await clearCollection(db, `tenants/${TENANT_ID}/availabilities`);
     // Note: We need a more robust way to clear nested subcollections in the future
     
     console.log('Clearing root user and tenant collections...');
@@ -207,7 +208,31 @@ export async function seedAllData() {
       batch.set(leadRef, lead);
     });
 
-    // 8. Commit all writes
+    // 8. Create Sample Availabilities
+    console.log('Creating sample availabilities...');
+    const availabilities = [
+        // David Chen (teacher)
+        { teacherId: teacher.uid, dayOfWeek: 1, startTime: '09:00', endTime: '12:00' }, // Monday
+        { teacherId: teacher.uid, dayOfWeek: 1, startTime: '13:00', endTime: '17:00' }, // Monday
+        { teacherId: teacher.uid, dayOfWeek: 3, startTime: '10:00', endTime: '15:00' }, // Wednesday
+        // Maria Garcia (orgAdmin, also a teacher)
+        { teacherId: orgAdmin.uid, dayOfWeek: 2, startTime: '09:00', endTime: '17:00' }, // Tuesday
+        { teacherId: orgAdmin.uid, dayOfWeek: 4, startTime: '09:00', endTime: '17:00' }, // Thursday
+    ];
+
+    availabilities.forEach(avail => {
+        const availRef = doc(collection(db, `tenants/${TENANT_ID}/availabilities`));
+        batch.set(availRef, {
+            teacherId: avail.teacherId,
+            tenantId: TENANT_ID,
+            dayOfWeek: avail.dayOfWeek,
+            startTime: avail.startTime,
+            endTime: avail.endTime,
+        });
+    });
+
+
+    // 9. Commit all writes
     console.log('Committing all changes...');
     await batch.commit();
 
