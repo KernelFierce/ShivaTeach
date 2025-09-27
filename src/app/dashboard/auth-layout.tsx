@@ -23,7 +23,7 @@ export function AuthLayout({ children }: PropsWithChildren) {
     return doc(firestore, "users", user.uid);
   }, [firestore, user?.uid]);
 
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc(userDocRef);
+  const { data: userProfile, isLoading: isProfileLoading, error: profileError } = useDoc(userDocRef);
 
   useEffect(() => {
     if (isUserLoading || isProfileLoading) return; // Wait for user and profile to load
@@ -78,6 +78,21 @@ export function AuthLayout({ children }: PropsWithChildren) {
         <p>Redirecting to login...</p>
       </div>
     );
+  }
+
+  // If the user is logged in, but we can't find their profile document
+  if (!userProfile && !isLoading) {
+    return (
+       <div className="flex items-center justify-center h-screen">
+         <div className="text-center p-4 rounded-md bg-destructive/10 border border-destructive max-w-md">
+            <h2 className="text-xl font-bold text-destructive-foreground">Profile Error</h2>
+            <p className="mt-2 text-destructive-foreground/80">
+              Could not load your user profile from the database. This might be a permissions issue or the profile document doesn't exist.
+            </p>
+            {profileError && <p className="mt-2 font-mono text-xs text-destructive-foreground/60">{profileError.message}</p>}
+         </div>
+       </div>
+    )
   }
 
   return (

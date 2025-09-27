@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -24,7 +25,7 @@ import {
   LineChart,
   Loader2
 } from "lucide-react"
-import { collection, query, where, getCountFromServer } from "firebase/firestore";
+import { collection } from "firebase/firestore";
 
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase"
 import { FinancialChart } from "./financial-chart"
@@ -33,6 +34,7 @@ import { financialData, upcomingSessions } from "@/lib/mock-data" // Keep some m
 interface TenantUser {
   id: string;
   status: string;
+  role: string;
 }
 
 interface Lead {
@@ -55,14 +57,21 @@ export default function DashboardPage() {
     return collection(firestore, 'tenants', tenantId, 'leads');
   }, [firestore, tenantId]);
 
-  const { data: users, isLoading: usersLoading } = useCollection<TenantUser>(usersCollectionRef);
-  const { data: leads, isLoading: leadsLoading } = useCollection<Lead>(leadsCollectionRef);
+  const { data: users, isLoading: usersLoading, error: usersError } = useCollection<TenantUser>(usersCollectionRef);
+  const { data: leads, isLoading: leadsLoading, error: leadsError } = useCollection<Lead>(leadsCollectionRef);
 
-  const totalStudents = users ? users.length : 0;
-  const activeStudents = users ? users.filter(u => u.status === 'Active').length : 0;
+  const totalStudents = users ? users.filter(u => u.role === 'Student').length : 0;
+  const activeStudents = users ? users.filter(u => u.role === 'Student' && u.status === 'Active').length : 0;
   const totalLeads = leads ? leads.length : 0;
 
   const isLoading = usersLoading || leadsLoading;
+  const isError = usersError || leadsError;
+
+  const renderStat = (value: number) => {
+    if (isLoading) return <Loader2 className="h-6 w-6 animate-spin"/>;
+    if (isError) return <span className="text-destructive text-sm">Error</span>;
+    return <div className="text-2xl font-bold">{value}</div>;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -71,6 +80,17 @@ export default function DashboardPage() {
         <p className="text-muted-foreground">Here's a summary of your organization's activity.</p>
       </div>
 
+      {isError && (
+        <Card className="bg-destructive/10 border-destructive">
+            <CardHeader>
+                <CardTitle className="text-destructive">Permissions Error</CardTitle>
+                <CardDescription className="text-destructive-foreground">
+                    There was an error fetching dashboard data. Please ensure your Firestore security rules allow logged-in users to read the required collections.
+                </CardDescription>
+            </CardHeader>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -78,7 +98,7 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{totalStudents}</div>}
+            {renderStat(totalStudents)}
             <p className="text-xs text-muted-foreground">
               Across all programs
             </p>
@@ -90,7 +110,7 @@ export default function DashboardPage() {
             <CalendarCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{activeStudents}</div>}
+            {renderStat(activeStudents)}
             <p className="text-xs text-muted-foreground">
               Currently enrolled
             </p>
@@ -102,7 +122,7 @@ export default function DashboardPage() {
             <Briefcase className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {isLoading ? <Loader2 className="h-6 w-6 animate-spin"/> : <div className="text-2xl font-bold">{totalLeads}</div>}
+             {renderStat(totalLeads)}
             <p className="text-xs text-muted-foreground">
               Potential new students
             </p>

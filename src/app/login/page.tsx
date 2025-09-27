@@ -1,14 +1,16 @@
 
+
 'use client';
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { signInWithEmailAndPassword, type AuthError } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword, type AuthError, createUserWithEmailAndPassword } from 'firebase/auth';
+import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { doc, setDoc } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +19,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import {
   Form,
@@ -32,13 +35,20 @@ import { Logo } from '@/components/logo';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
-  password: z.string().min(1, { message: 'Password is required.' }),
+  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+// This is the default admin user that was created during the seeding process.
+const defaultAdmin = {
+  email: 'admin@tutorhub.com',
+  password: 'password'
+}
+
 export default function LoginPage() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,41 +56,38 @@ export default function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: 'admin@tutorhub.com',
-      password: 'password',
+      email: defaultAdmin.email,
+      password: defaultAdmin.password,
     },
   });
 
-  async function onSubmit(data: LoginFormValues) {
+  const handleAuthError = (error: AuthError) => {
+    console.error('Authentication Error:', error.code, error.message);
+    let description = 'An unexpected authentication error occurred.';
+    if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      description = 'Invalid email or password. Please try again.';
+    } else if (error.code === 'auth/email-already-in-use') {
+      description = 'This email is already in use. Please try logging in.';
+    }
+    toast({
+      variant: 'destructive',
+      title: 'Authentication Failed',
+      description,
+    });
+  }
+
+  async function onSignIn(data: LoginFormValues) {
     setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      toast({
-        title: 'Login Successful!',
-        description: "Welcome back. You're being redirected to the dashboard.",
-      });
-      router.push('/dashboard');
+      // Let the root page redirect handle success
     } catch (error) {
-      const e = error as AuthError;
-      console.error('Login Error:', e.code, e.message);
-      
-      let description = 'There was a problem with your login attempt.';
-      if (e.code === 'auth/invalid-credential' || e.code === 'auth/user-not-found' || e.code === 'auth/wrong-password') {
-        description = 'Invalid email or password. Please try again.';
-      } else if (e.code === 'auth/user-not-found') {
-          description = 'No user found with this email. Please check the email or sign up.';
-      }
-
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description,
-      });
+      handleAuthError(error as AuthError);
     } finally {
       setIsSubmitting(false);
     }
   }
-
+  
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-md">
@@ -95,7 +102,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSignIn)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="email"
@@ -141,6 +148,11 @@ export default function LoginPage() {
             </form>
           </Form>
         </CardContent>
+        <CardFooter className="flex-col gap-4 text-center">
+             <p className="text-xs text-muted-foreground">
+                Don't have an account? Contact support to get started.
+            </p>
+        </CardFooter>
       </Card>
     </div>
   );

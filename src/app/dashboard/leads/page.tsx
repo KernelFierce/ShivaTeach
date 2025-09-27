@@ -26,9 +26,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection } from 'firebase/firestore';
-import { useMemoFirebase } from '@/firebase/provider';
 
 interface Lead {
   id: string;
@@ -142,7 +141,7 @@ export default function LeadsPage() {
                 <CardTitle className="font-headline">Lead Management</CardTitle>
                 <CardDescription>Manage prospects and convert them into active students.</CardDescription>
             </div>
-            <Button disabled={isLoading}>
+            <Button disabled={isLoading || !!error}>
               <PlusCircle className="mr-2 h-4 w-4" /> Add Lead
             </Button>
         </div>
