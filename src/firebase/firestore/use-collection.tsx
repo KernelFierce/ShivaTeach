@@ -8,9 +8,11 @@ import {
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
+  addDoc,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { toast } from '@/hooks/use-toast';
 
 /** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
@@ -24,6 +26,7 @@ export interface UseCollectionResult<T> {
   isLoading: boolean;       // True if loading.
   error: FirestoreError | Error | null; // Error object, or null.
   manualRefresh: () => void; // Function to manually trigger a re-fetch
+  add: (data: T) => Promise<void>;
 }
 
 /* Internal implementation of Query:
@@ -119,8 +122,30 @@ export function useCollection<T = any>(
 
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery, refreshId]); // Re-run if the target query/reference or refreshId changes.
+
+  const add = async (newData: T) => {
+    if (!memoizedTargetRefOrQuery) {
+        toast({ title: "Error", description: "Collection reference not available.", variant: "destructive" });
+        return;
+    }
+
+    if (memoizedTargetRefOrQuery.type !== 'collection') {
+        const errText = "Cannot add a document to a query. Please provide a direct CollectionReference.";
+        toast({ title: "Operation not allowed", description: errText, variant: "destructive" });
+        console.error(errText);
+        return;
+    }
+
+    try {
+        await addDoc(memoizedTargetRefOrQuery as CollectionReference<DocumentData>, newData as DocumentData);
+        toast({ title: "Success", description: "Document added successfully." });
+    } catch (error) {
+        toast({ title: "Error adding document", description: error.message, variant: "destructive" });
+    }
+  };
+
   if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
     throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
   }
-  return { data, isLoading, error, manualRefresh };
+  return { data, isLoading, error, manualRefresh, add };
 }

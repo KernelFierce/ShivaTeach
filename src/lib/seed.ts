@@ -1,19 +1,5 @@
 
-'use client';
-
-import {
-  getFirestore,
-  writeBatch,
-  doc,
-  collection,
-  getDocs,
-  Timestamp,
-} from 'firebase/firestore';
-import {
-  getAuth,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-} from 'firebase/auth';
+import { getFirebaseAdmin } from '../firebase/server';
 import type { UserRole } from '@/types/user-profile';
 
 const TENANT_ID = 'acme-tutoring';
@@ -21,14 +7,14 @@ const TENANT_ID = 'acme-tutoring';
 // --- Clean Up Function ---
 async function clearCollection(db: any, collectionPath: string) {
   try {
-    const collRef = collection(db, collectionPath);
-    const querySnapshot = await getDocs(collRef);
+    const collRef = db.collection(collectionPath);
+    const querySnapshot = await collRef.get();
     if (querySnapshot.empty) {
       console.log(`Collection ${collectionPath} is already empty.`);
       return;
     }
-    const batch = writeBatch(db);
-    querySnapshot.forEach((doc) => {
+    const batch = db.batch();
+    querySnapshot.forEach((doc: any) => {
       batch.delete(doc.ref);
     });
     await batch.commit();
@@ -41,8 +27,9 @@ async function clearCollection(db: any, collectionPath: string) {
 
 // --- Main Seeding Function ---
 export async function seedAllData() {
-  const db = getFirestore();
-  const auth = getAuth();
+  const admin = getFirebaseAdmin();
+  const db = admin.firestore;
+  const auth = admin.auth;
 
   try {
     console.log('--- Starting Database Seed ---');
@@ -51,14 +38,14 @@ export async function seedAllData() {
     console.log('Clearing existing tenant subcollections...');
     // A more robust solution would be to iterate through all user docs and clear their subcollections.
     // For now, we manually list them for our known test users.
-    const userDocs = await getDocs(collection(db, `tenants/${TENANT_ID}/users`));
+    const userDocs = await db.collection(`tenants/${TENANT_ID}/users`).get();
     for (const userDoc of userDocs.docs) {
         await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/sessionsAsStudent`);
         await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/sessionsAsTeacher`);
         await clearCollection(db, `tenants/${TENANT_ID}/users/${userDoc.id}/assignments`);
     }
 
-    const conversationDocs = await getDocs(collection(db, `tenants/${TENANT_ID}/conversations`));
+    const conversationDocs = await db.collection(`tenants/${TENANT_ID}/conversations`).get();
     for (const convoDoc of conversationDocs.docs) {
         await clearCollection(db, `tenants/${TENANT_ID}/conversations/${convoDoc.id}/messages`);
     }
@@ -79,11 +66,11 @@ export async function seedAllData() {
     // DO NOT CLEAR THE 'tenants' collection itself. Instead, update the document.
 
     // 2. Initialize a new Write Batch
-    const batch = writeBatch(db);
+    const batch = db.batch();
 
     // 3. Create or Update Tenant
     console.log('Creating or updating tenant...');
-    const tenantRef = doc(db, 'tenants', TENANT_ID);
+    const tenantRef = db.doc(`tenants/${TENANT_ID}`);
     batch.set(tenantRef, {
       name: 'Acme Tutors Inc.',
       description:
@@ -102,64 +89,57 @@ export async function seedAllData() {
       name: string,
       roles: UserRole[],
       activeRole: UserRole,
+      preferredTimezone: string,
       tenantId: string | null = null,
       status: string = 'Active'
     ) => {
-      try {
-        await signInWithEmailAndPassword(auth, email, 'password');
-        console.log(`Auth user ${email} already exists. Skipping creation.`);
-      } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-          try {
-            await createUserWithEmailAndPassword(auth, email, 'password');
-            console.log(`Created auth user for ${email}`);
-          } catch (createError: any) {
-             if (createError.code === 'auth/email-already-in-use') {
-                console.log(`Auth user ${email} already exists. Skipping creation.`);
-             } else {
-                 throw createError;
-             }
-          }
-        } else {
-            throw error;
+        let uid;
+        try {
+            const userRecord = await auth.getUserByEmail(email);
+            uid = userRecord.uid;
+            console.log(`Auth user ${email} already exists. Skipping creation.`);
+        } catch (error: any) {
+            if (error.code === 'auth/user-not-found') {
+                const userRecord = await auth.createUser({ email, password: 'password' });
+                uid = userRecord.uid;
+                console.log(`Created auth user for ${email}`);
+            } else {
+                throw error;
+            }
         }
-      }
 
-      await signInWithEmailAndPassword(auth, email, 'password');
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error(`Could not get user for ${email}`);
-      const uid = currentUser.uid;
-
-      const userProfileRef = doc(db, 'users', uid);
+      const userProfileRef = db.doc(`users/${uid}`);
       batch.set(userProfileRef, {
         displayName: name,
         email: email,
         roles: roles,
         activeRole: activeRole,
         activeTenantId: tenantId,
+        preferredTimezone: preferredTimezone,
       });
 
       if (tenantId) {
-        const tenantUserRef = doc(db, `tenants/${tenantId}/users`, uid);
+        const tenantUserRef = db.doc(`tenants/${tenantId}/users/${uid}`);
         batch.set(tenantUserRef, {
           name: name,
           email: email,
           roles: roles,
           status: status,
           joined: new Date().toLocaleDateString('en-CA'),
+          preferredTimezone: preferredTimezone,
         });
       }
       return { uid, name, email, roles };
     };
 
-    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', ['SuperAdmin'], 'SuperAdmin');
-    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
-    const ankur = await createUser('ankur@kakkar.com', 'Ankur Kakkar', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', TENANT_ID);
-    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], 'Teacher', TENANT_ID);
-    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student', 'Parent'], 'Student', TENANT_ID);
-    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], 'Student', TENANT_ID);
-    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', ['Parent'], 'Parent', TENANT_ID);
-    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', ['Student'], 'Student', TENANT_ID, 'Inactive');
+    const superAdmin = await createUser('super@tutorhub.com', 'Shiva Sai', ['SuperAdmin'], 'SuperAdmin', 'Asia/Kolkata');
+    const orgAdmin = await createUser('admin@tutorhub.com', 'Maria Garcia', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', 'America/New_York', TENANT_ID);
+    const ankur = await createUser('ankur@kakkar.com', 'Ankur Kakkar', ['OrganizationAdmin', 'Teacher'], 'OrganizationAdmin', 'America/New_York', TENANT_ID);
+    const teacher = await createUser('teacher@tutorhub.com', 'David Chen', ['Teacher'], 'Teacher', 'America/Los_Angeles', TENANT_ID);
+    const student1 = await createUser('student@tutorhub.com', 'Alex Johnson', ['Student', 'Parent'], 'Student', 'America/Chicago', TENANT_ID);
+    const student2 = await createUser('student2@tutorhub.com', 'Sarah Lee', ['Student'], 'Student', 'America/New_York', TENANT_ID);
+    const parent = await createUser('parent@tutorhub.com', 'Carol Johnson', ['Parent'], 'Parent', 'America/Chicago', TENANT_ID);
+    const inactiveUser = await createUser('inactive@tutorhub.com', 'Bob Smith', ['Student'], 'Student', 'America/New_York', TENANT_ID, 'Inactive');
 
     // 5. Create Subjects and Courses
     console.log('Creating subjects and courses...');
@@ -178,12 +158,12 @@ export async function seedAllData() {
     ];
 
     subjects.forEach((subject) => {
-      const subjectRef = doc(db, `tenants/${TENANT_ID}/subjects`, subject.id);
+      const subjectRef = db.doc(`tenants/${TENANT_ID}/subjects/${subject.id}`);
       batch.set(subjectRef, { name: subject.name });
     });
 
     courses.forEach((course) => {
-      const courseRef = doc(db, `tenants/${TENANT_ID}/courses`, course.id);
+      const courseRef = db.doc(`tenants/${TENANT_ID}/courses/${course.id}`);
       batch.set(courseRef, course);
     });
 
@@ -191,23 +171,23 @@ export async function seedAllData() {
     console.log('Creating sample sessions and user-specific references...');
     const sessions = [
         // Today's sessions
-        { startTime: Timestamp.fromDate(new Date(new Date().setHours(10, 0, 0, 0))), courseId: 'alg-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
-        { startTime: Timestamp.fromDate(new Date(new Date().setHours(14, 0, 0, 0))), courseId: 'chem-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
+        { startTime: admin.firestore.Timestamp.fromDate(new Date(new Date().setHours(10, 0, 0, 0))), courseId: 'alg-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+        { startTime: admin.firestore.Timestamp.fromDate(new Date(new Date().setHours(14, 0, 0, 0))), courseId: 'chem-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
         // Future sessions
-        { startTime: Timestamp.fromDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)), courseId: 'wh-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
-        { startTime: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), courseId: 'bio-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
+        { startTime: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)), courseId: 'wh-1', teacherId: teacher.uid, studentId: student1.uid, status: 'Scheduled' },
+        { startTime: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)), courseId: 'bio-1', teacherId: orgAdmin.uid, studentId: student2.uid, status: 'Scheduled' },
     ];
 
     sessions.forEach((sessionData) => {
-        const sessionRef = doc(collection(db, `tenants/${TENANT_ID}/sessions`));
+        const sessionRef = db.collection(`tenants/${TENANT_ID}/sessions`).doc();
         batch.set(sessionRef, sessionData);
 
         // Create reference for the student
-        const studentSessionRef = doc(collection(db, `tenants/${TENANT_ID}/users/${sessionData.studentId}/sessionsAsStudent`));
+        const studentSessionRef = db.collection(`tenants/${TENANT_ID}/users/${sessionData.studentId}/sessionsAsStudent`).doc();
         batch.set(studentSessionRef, { sessionId: sessionRef.id, startTime: sessionData.startTime });
 
         // Create reference for the teacher
-        const teacherSessionRef = doc(collection(db, `tenants/${TENANT_ID}/users/${sessionData.teacherId}/sessionsAsTeacher`));
+        const teacherSessionRef = db.collection(`tenants/${TENANT_ID}/users/${sessionData.teacherId}/sessionsAsTeacher`).doc();
         batch.set(teacherSessionRef, { sessionId: sessionRef.id, startTime: sessionData.startTime });
     });
 
@@ -221,7 +201,7 @@ export async function seedAllData() {
     ];
 
     leads.forEach((lead) => {
-      const leadRef = doc(collection(db, `tenants/${TENANT_ID}/leads`));
+      const leadRef = db.collection(`tenants/${TENANT_ID}/leads`).doc();
       batch.set(leadRef, lead);
     });
 
@@ -238,7 +218,7 @@ export async function seedAllData() {
     ];
 
     availabilities.forEach(avail => {
-        const availRef = doc(collection(db, `tenants/${TENANT_ID}/availabilities`));
+        const availRef = db.collection(`tenants/${TENANT_ID}/availabilities`).doc();
         batch.set(availRef, {
             teacherId: avail.teacherId,
             tenantId: TENANT_ID,
@@ -255,24 +235,24 @@ export async function seedAllData() {
             title: 'Algebra Homework 1', 
             courseId: 'alg-1', 
             studentId: student1.uid, 
-            dueDate: Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
+            dueDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)),
         },
         { 
             title: 'Lab Report: Photosynthesis', 
             courseId: 'bio-1', 
             studentId: student2.uid, 
-            dueDate: Timestamp.fromDate(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)),
+            dueDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)),
         },
         { 
             title: 'Essay: The Roman Empire', 
             courseId: 'wh-1', 
             studentId: student1.uid, 
-            dueDate: Timestamp.fromDate(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)), // Overdue
+            dueDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)), // Overdue
         },
     ];
 
     assignments.forEach((assignment) => {
-        const assignmentRef = doc(collection(db, `tenants/${TENANT_ID}/users/${assignment.studentId}/assignments`));
+        const assignmentRef = db.collection(`tenants/${TENANT_ID}/users/${assignment.studentId}/assignments`).doc();
         batch.set(assignmentRef, {
             title: assignment.title,
             courseId: assignment.courseId,
@@ -285,38 +265,38 @@ export async function seedAllData() {
     const invoices = [
         { 
             studentId: student1.uid,
-            issueDate: Timestamp.fromDate(new Date(new Date().setDate(1))),
-            dueDate: Timestamp.fromDate(new Date(new Date().setDate(15))),
+            issueDate: admin.firestore.Timestamp.fromDate(new Date(new Date().setDate(1))),
+            dueDate: admin.firestore.Timestamp.fromDate(new Date(new Date().setDate(15))),
             amount: 220,
             status: 'Paid',
         },
         {
             studentId: student1.uid,
-            issueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 1, 1))),
-            dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 1, 15))),
+            issueDate: admin.firestore.Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 1, 1))),
+            dueDate: admin.firestore.Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 1, 15))),
             amount: 240,
             status: 'Due',
         },
     ];
 
-    const invoice1Ref = doc(collection(db, `tenants/${TENANT_ID}/invoices`));
+    const invoice1Ref = db.collection(`tenants/${TENANT_ID}/invoices`).doc();
     batch.set(invoice1Ref, invoices[0]);
-    const invoice2Ref = doc(collection(db, `tenants/${TENANT_ID}/invoices`));
+    const invoice2Ref = db.collection(`tenants/${TENANT_ID}/invoices`).doc();
     batch.set(invoice2Ref, invoices[1]);
 
-    const payment1Ref = doc(collection(db, `tenants/${TENANT_ID}/payments`));
+    const payment1Ref = db.collection(`tenants/${TENANT_ID}/payments`).doc();
     batch.set(payment1Ref, {
         invoiceId: invoice1Ref.id,
         studentId: student1.uid,
-        paymentDate: Timestamp.fromDate(new Date(new Date().setDate(10))),
+        paymentDate: admin.firestore.Timestamp.fromDate(new Date(new Date().setDate(10))),
         amount: 220,
         method: 'Credit Card',
     });
 
     // 11. Create Sample Conversations and Messages
     console.log('Creating sample conversations and messages...');
-    const convo1Ref = doc(collection(db, `tenants/${TENANT_ID}/conversations`));
-    const convo2Ref = doc(collection(db, `tenants/${TENANT_ID}/conversations`));
+    const convo1Ref = db.collection(`tenants/${TENANT_ID}/conversations`).doc();
+    const convo2Ref = db.collection(`tenants/${TENANT_ID}/conversations`).doc();
     
     const convo1LastMessage = "Oh, that's what I was missing! Thanks for the help with the algebra homework! I finally get it.";
     const convo2LastMessage = "Just wanted to confirm Alex's session time for next week.";
@@ -332,7 +312,7 @@ export async function seedAllData() {
             [student1.uid]: 'student-avatar'
         },
         lastMessageText: convo1LastMessage,
-        lastMessageTimestamp: Timestamp.now(),
+        lastMessageTimestamp: admin.firestore.Timestamp.now(),
     });
 
     batch.set(convo2Ref, {
@@ -346,26 +326,24 @@ export async function seedAllData() {
             [parent.uid]: 'avatar-3'
         },
         lastMessageText: convo2LastMessage,
-        lastMessageTimestamp: Timestamp.fromDate(new Date(Date.now() - 3600 * 1000)), // 1 hour ago
+        lastMessageTimestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 3600 * 1000)), // 1 hour ago
     });
 
     // Messages for convo 1
-    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: student1.uid, text: "Hi Mr. Chen, I'm having trouble with question 5 on the homework.", timestamp: Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 1000))});
-    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: teacher.uid, text: 'Hi Alex. No problem. Can you show me what you have so far?', timestamp: Timestamp.fromDate(new Date(Date.now() - 8 * 60 * 1000)) });
-    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: student1.uid, text: 'I tried to solve for x but I keep getting a negative number.', timestamp: Timestamp.fromDate(new Date(Date.now() - 5 * 60 * 1000)) });
-    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: teacher.uid, text: "Ah, I see. Remember to distribute the negative sign to both terms inside the parentheses. That's a common mistake.", timestamp: Timestamp.fromDate(new Date(Date.now() - 2 * 60 * 1000)) });
-    batch.set(doc(collection(db, convo1Ref.path, 'messages')), { senderId: student1.uid, text: convo1LastMessage, timestamp: Timestamp.now() });
+    batch.set(db.collection(convo1Ref.path).doc('messages').collection().doc(), { senderId: student1.uid, text: "Hi Mr. Chen, I'm having trouble with question 5 on the homework.", timestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 1000))});
+    batch.set(db.collection(convo1Ref.path).doc('messages').collection().doc(), { senderId: teacher.uid, text: 'Hi Alex. No problem. Can you show me what you have so far?', timestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 8 * 60 * 1000)) });
+    batch.set(db.collection(convo1Ref.path).doc('messages').collection().doc(), { senderId: student1.uid, text: 'I tried to solve for x but I keep getting a negative number.', timestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 5 * 60 * 1000)) });
+    batch.set(db.collection(convo1Ref.path).doc('messages').collection().doc(), { senderId: teacher.uid, text: "Ah, I see. Remember to distribute the negative sign to both terms inside the parentheses. That's a common mistake.", timestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 2 * 60 * 1000)) });
+    batch.set(db.collection(convo1Ref.path).doc('messages').collection().doc(), { senderId: student1.uid, text: convo1LastMessage, timestamp: admin.firestore.Timestamp.now() });
 
     // Messages for convo 2
-    batch.set(doc(collection(db, convo2Ref.path, 'messages')), { senderId: parent.uid, text: "Hello David, this is Carol Johnson.", timestamp: Timestamp.fromDate(new Date(Date.now() - 3601 * 1000)) });
-    batch.set(doc(collection(db, convo2Ref.path, 'messages')), { senderId: parent.uid, text: convo2LastMessage, timestamp: Timestamp.fromDate(new Date(Date.now() - 3600 * 1000)) });
+    batch.set(db.collection(convo2Ref.path).doc('messages').collection().doc(), { senderId: parent.uid, text: "Hello David, this is Carol Johnson.", timestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 3601 * 1000)) });
+    batch.set(db.collection(convo2Ref.path).doc('messages').collection().doc(), { senderId: parent.uid, text: convo2LastMessage, timestamp: admin.firestore.Timestamp.fromDate(new Date(Date.now() - 3600 * 1000)) });
 
 
     // 12. Commit all writes
     console.log('Committing all changes...');
     await batch.commit();
-
-    await auth.signOut();
 
     console.log('--- Database Seed Successful ---');
     return { success: true, message: 'Database seeded successfully!' };

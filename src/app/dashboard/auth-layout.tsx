@@ -7,10 +7,8 @@ import { useEffect, type PropsWithChildren } from "react"
 import { doc } from "firebase/firestore"
 import type { UserProfile, UserRole } from "@/types/user-profile"
 
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { DashboardHeader } from "@/components/dashboard-header"
-import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { Toaster } from "@/components/ui/toaster"
+import { DashboardLayout } from "@/components/layout/dashboard-layout"
+import { navConfig } from "@/config/nav"
 import { Loader2 } from "lucide-react"
 
 // Defines the "base" path for each role's dashboard.
@@ -138,14 +136,11 @@ export function AuthLayout({ children }: PropsWithChildren) {
     )
   }
 
+  const visibleNavLinks = navConfig.filter(link => userProfile?.activeRole && link.role === userProfile.activeRole);
+
   return (
-    <SidebarProvider>
-      <DashboardSidebar />
-      <SidebarInset className="flex flex-col">
-        <DashboardHeader />
-        <main className="flex-1 p-4 sm:px-6 sm:py-0">{children}</main>
-        <Toaster />
-      </SidebarInset>
-    </SidebarProvider>
+    <DashboardLayout navItems={visibleNavLinks}>
+      {children}
+    </DashboardLayout>
   )
 }

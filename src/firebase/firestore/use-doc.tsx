@@ -7,9 +7,13 @@ import {
   DocumentData,
   FirestoreError,
   DocumentSnapshot,
+  updateDoc,
+  setDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { toast } from '@/hooks/use-toast';
 
 /** Utility type to add an 'id' field to a given type T. */
 type WithId<T> = T & { id: string };
@@ -22,6 +26,9 @@ export interface UseDocResult<T> {
   data: WithId<T> | null; // Document data with ID, or null.
   isLoading: boolean;       // True if loading.
   error: FirestoreError | Error | null; // Error object, or null.
+  update: (data: Partial<T>) => Promise<void>;
+  set: (data: T) => Promise<void>;
+  delete: () => Promise<void>;
 }
 
 /**
@@ -57,7 +64,6 @@ export function useDoc<T = any>(
 
     setIsLoading(true);
     setError(null);
-    // Optional: setData(null); // Clear previous data instantly
 
     const unsubscribe = onSnapshot(
       memoizedDocRef,
@@ -89,5 +95,35 @@ export function useDoc<T = any>(
     return () => unsubscribe();
   }, [memoizedDocRef]); // Re-run if the memoizedDocRef changes.
 
-  return { data, isLoading, error };
+  const update = async (data: Partial<T>) => {
+    if (!memoizedDocRef) return;
+    try {
+      await updateDoc(memoizedDocRef, data);
+      toast({ title: "Success", description: "Document updated successfully." });
+    } catch (error) {
+      toast({ title: "Error updating document", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const set = async (data: T) => {
+    if (!memoizedDocRef) return;
+    try {
+      await setDoc(memoizedDocRef, data);
+      toast({ title: "Success", description: "Document saved successfully." });
+    } catch (error) {
+      toast({ title: "Error saving document", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const deleteDocument = async () => {
+    if (!memoizedDocRef) return;
+    try {
+      await deleteDoc(memoizedDocRef);
+      toast({ title: "Success", description: "Document deleted successfully." });
+    } catch (error) {
+      toast({ title: "Error deleting document", description: error.message, variant: "destructive" });
+    }
+  };
+
+  return { data, isLoading, error, update, set, delete: deleteDocument };
 }

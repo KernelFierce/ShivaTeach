@@ -22,6 +22,7 @@ import {
   Loader2,
   Sparkles,
   Lightbulb,
+  CheckCircle,
 } from "lucide-react"
 import {
   collection,
@@ -50,8 +51,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { suggestSessionTimes } from "@/ai/flows/smart-schedule-flow";
-import type { SmartScheduleOutput } from "@/ai/flows/smart-schedule-flow";
+import { suggestSessionTimes, bookSession } from "@/ai/flows/smart-schedule-flow";
+import type { SmartScheduleOutput, BookSessionInput } from "@/ai/flows/smart-schedule-flow";
+import { useToast } from "@/hooks/use-toast";
+
 
 interface SessionRef {
     id: string;
@@ -90,6 +93,7 @@ export interface Assignment {
 export default function StudentDashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
   const tenantId = 'acme-tutoring';
   const avatar = PlaceHolderImages.find(p => p.id === 'student-avatar');
 
@@ -99,11 +103,14 @@ export default function StudentDashboardPage() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
 
   // State for Smart Scheduler
-  const [isScheduling, startScheduling] = useTransition();
+  const [isFindingTimes, startFindingTimes] = useTransition();
+  const [isBooking, startBooking] = useTransition();
   const [scheduleRequest, setScheduleRequest] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState('');
   const [scheduleSuggestion, setScheduleSuggestion] = useState<SmartScheduleOutput | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState(false);
 
 
   const sessionRefsQueryRef = useMemoFirebase(() => {
@@ -164,17 +171,10 @@ export default function StudentDashboardPage() {
   const { data: assignments, isLoading: assignmentsLoading, manualRefresh: refreshAssignments } = useCollection<Assignment>(assignmentsQueryRef);
 
   const studentTeachers = useMemo(() => {
-    if (!sessions || !users) return [];
-    const teacherIds = new Set(sessions.map(s => s.teacherId));
-    return users.filter(u => teacherIds.has(u.id));
-  }, [sessions, users]);
-
-  useEffect(() => {
-    // Auto-select the first teacher if not already selected
-    if (studentTeachers.length > 0 && !selectedTeacher) {
-      setSelectedTeacher(studentTeachers[0].id);
-    }
-  }, [studentTeachers, selectedTeacher]);
+    if (!users) return [];
+    // This is a simplification. In a real app, you'd likely find teachers based on student's enrollments.
+    return users.filter(u => u.roles.includes('Teacher'));
+  }, [users]);
 
   const handleDialogChange = (isOpen: boolean) => {
     setIsSubmitDialogOpen(isOpen);
@@ -217,13 +217,16 @@ export default function StudentDashboardPage() {
   };
   
   const handleFindTimes = () => {
-    if (!scheduleRequest || !selectedTeacher) return;
+    if (!scheduleRequest || !selectedTeacher || !user || !selectedCourse) return;
     setScheduleSuggestion(null);
     setScheduleError(null);
-    startScheduling(async () => {
+    setBookingSuccess(false);
+    startFindingTimes(async () => {
       try {
         const result = await suggestSessionTimes({
           teacherId: selectedTeacher,
+          studentId: user.uid,
+          courseId: selectedCourse,
           studentRequest: scheduleRequest,
         });
         setScheduleSuggestion(result);
@@ -234,17 +237,44 @@ export default function StudentDashboardPage() {
     });
   };
 
+  const handleBookSession = (isoTime: string) => {
+    if (!selectedTeacher || !user || !selectedCourse) return;
+    
+    startBooking(async () => {
+      try {
+        const input: BookSessionInput = {
+            startTime: isoTime,
+            teacherId: selectedTeacher,
+            studentId: user.uid,
+            courseId: selectedCourse,
+            courseName: getCourseName(selectedCourse) || 'Unknown Course',
+            teacherName: getUserName(selectedTeacher) || 'Unknown Teacher',
+            studentName: user.displayName || 'Unknown Student',
+        };
+        await bookSession(input);
+        setBookingSuccess(true);
+        setScheduleSuggestion(null);
+        refreshSessionRefs(); // Refresh the upcoming sessions list
+        toast({ title: "Session Booked!", description: "The new session has been added to your calendar." });
+      } catch (error) {
+        console.error("Error booking session:", error);
+        toast({ variant: 'destructive', title: "Booking Failed", description: "Could not book the session. Please try again." });
+      }
+    });
+  };
+
   const isLoading = sessionsLoading || coursesLoading || usersLoading || sessionRefsLoading || assignmentsLoading;
+  const isScheduling = isFindingTimes || isBooking;
 
   return (
     <>
-      {selectedAssignment && (
+      {selectedAssignment && user && (
           <SubmitAssignmentDialog 
               isOpen={isSubmitDialogOpen}
               onOpenChange={handleDialogChange}
               assignment={selectedAssignment}
               tenantId={tenantId}
-              studentId={user?.uid || ''}
+              studentId={user.uid}
           />
       )}
       <div className="flex flex-col gap-6">
@@ -263,26 +293,35 @@ export default function StudentDashboardPage() {
             <Card>
             <CardHeader>
                 <CardTitle className="font-headline flex items-center gap-2">
-                    <Lightbulb className="h-5 w-5 text-accent" />
-                    Smart Reschedule Request
+                    <Lightbulb className="h-5 w-5 text-yellow-400" />
+                    Smart Scheduler
                 </CardTitle>
                 <CardDescription>
-                    Need to move a session? Ask our AI assistant to find a new time.
+                    Need to schedule a session? Ask our AI assistant to find a time.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="sm:col-span-2 space-y-2">
-                        <label className="text-sm font-medium">Your Request</label>
-                        <Textarea
-                            placeholder="e.g., 'Can we meet next Tuesday afternoon instead of Wednesday?'"
-                            value={scheduleRequest}
-                            onChange={(e) => setScheduleRequest(e.target.value)}
-                            disabled={isScheduling}
-                            className="h-24"
-                        />
+                    <div className="sm:col-span-3 lg:col-span-1 space-y-2">
+                        <label className="text-sm font-medium">Course</label>
+                        <Select
+                          value={selectedCourse}
+                          onValueChange={setSelectedCourse}
+                          disabled={isScheduling || coursesLoading}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a course..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {courses?.map(course => (
+                                    <SelectItem key={course.id} value={course.id}>
+                                        {course.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                     <div className="space-y-2">
+                    <div className="sm:col-span-3 lg:col-span-1 space-y-2">
                         <label className="text-sm font-medium">Teacher</label>
                         <Select
                           value={selectedTeacher}
@@ -301,33 +340,57 @@ export default function StudentDashboardPage() {
                             </SelectContent>
                         </Select>
                     </div>
+                    <div className="sm:col-span-3 lg:col-span-1 space-y-2">
+                        <label className="text-sm font-medium">Your Request</label>
+                        <Textarea
+                            placeholder="e.g., 'Next Tuesday afternoon'"
+                            value={scheduleRequest}
+                            onChange={(e) => setScheduleRequest(e.target.value)}
+                            disabled={isScheduling}
+                        />
+                    </div>
                 </div>
 
-                <Button onClick={handleFindTimes} disabled={isScheduling || !scheduleRequest || !selectedTeacher}>
-                    {isScheduling && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {isScheduling ? "Finding Times..." : "Find Times"}
+                <Button onClick={handleFindTimes} disabled={isScheduling || !scheduleRequest || !selectedTeacher || !selectedCourse}>
+                    {isFindingTimes && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isFindingTimes ? "Finding Times..." : "Find Available Times"}
                 </Button>
 
                 {scheduleSuggestion && (
                     <Card className="bg-muted/50">
                     <CardHeader>
-                        <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                          <Sparkles className="h-5 w-5 text-accent" />
-                          Suggested Times
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-yellow-500" />
+                          {scheduleSuggestion.responseMessage}
                         </CardTitle>
+                         <CardDescription>Click a time below to book it instantly.</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                        <p className="text-sm">{scheduleSuggestion.responseMessage}</p>
-                        <div className="flex flex-wrap gap-2">
-                            {scheduleSuggestion.suggestedTimes.map((time, index) => (
-                                <Badge key={index} variant="secondary" className="text-base">
-                                  {time}
-                                </Badge>
-                            ))}
-                        </div>
+                    <CardContent className="flex flex-wrap gap-2">
+                        {scheduleSuggestion.suggestedTimes.map((time, index) => (
+                            <Button 
+                                key={index} 
+                                variant="outline"
+                                onClick={() => handleBookSession(time.isoTime)}
+                                disabled={isBooking}
+                            >
+                                {isBooking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                {time.humanReadable}
+                            </Button>
+                        ))}
                     </CardContent>
                     </Card>
                 )}
+                 {bookingSuccess && (
+                    <Card className="bg-green-100/50 border-green-500/50">
+                        <CardContent className="p-4 flex items-center gap-3">
+                            <CheckCircle className="h-6 w-6 text-green-600" />
+                            <div>
+                                <p className="font-semibold text-green-800">Session Booked!</p>
+                                <p className="text-sm text-green-700">Your new session is confirmed and has been added to your calendar.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                 )}
                  {scheduleError && (
                     <Card className="bg-destructive/10 border-destructive">
                         <CardContent className="p-4">
@@ -441,5 +504,3 @@ export default function StudentDashboardPage() {
     </>
   )
 }
-
-    

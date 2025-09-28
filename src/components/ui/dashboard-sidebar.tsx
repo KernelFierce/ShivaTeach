@@ -5,21 +5,9 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Bell,
-  BookMarked,
-  Briefcase,
-  Calendar,
-  Home,
-  LineChart,
   LogOut,
   Settings,
-  Users,
-  Wallet,
-  Building,
-  GraduationCap,
-  HeartHandshake,
-  BookUser,
-  ShieldCheck,
-  CalendarCheck,
+  User,
   Check,
   ChevronsUpDown,
 } from "lucide-react"
@@ -53,45 +41,9 @@ import {
 import { Logo } from "@/components/logo"
 import { PlaceHolderImages } from "@/lib/placeholder-images"
 import type { UserProfile, UserRole } from "@/types/user-profile"
+import type { navConfig } from "@/config/nav"
 
-const navConfig: { role: UserRole, href: string, icon: React.ElementType, label: string }[] = [
-    // Admin & Org Admin
-    { role: 'OrganizationAdmin', href: "/dashboard", icon: Home, label: "Dashboard" },
-    { role: 'OrganizationAdmin', href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
-    { role: 'OrganizationAdmin', href: "/dashboard/users", icon: Users, label: "Users" },
-    { role: 'OrganizationAdmin', href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
-    { role: 'OrganizationAdmin', href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
-    { role: 'OrganizationAdmin', href: "/dashboard/financials", icon: Wallet, label: "Financials" },
-    { role: 'OrganizationAdmin', href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
-    
-    // Admin role inherits OrgAdmin links
-    { role: 'Admin', href: "/dashboard", icon: Home, label: "Dashboard" },
-    { role: 'Admin', href: "/dashboard/schedule", icon: Calendar, label: "Schedule" },
-    { role: 'Admin', href: "/dashboard/users", icon: Users, label: "Users" },
-    { role: 'Admin', href: "/dashboard/leads", icon: Briefcase, label: "Leads" },
-    { role: 'Admin', href: "/dashboard/courses", icon: BookMarked, label: "Courses" },
-    { role: 'Admin', href: "/dashboard/financials", icon: Wallet, label: "Financials" },
-    { role: 'Admin', href: "/dashboard/analytics", icon: LineChart, label: "Analytics" },
-
-    // Teacher
-    { role: 'Teacher', href: "/dashboard/teacher", icon: Home, label: "Dashboard" },
-    { role: 'Teacher', href: "/dashboard/teacher/availability", icon: CalendarCheck, label: "Availability" },
-    { role: 'Teacher', href: "/dashboard/teacher/lessons", icon: BookUser, label: "Lessons" },
-    { role: 'Teacher', href: "/dashboard/teacher/communication", icon: Users, label: "Communication" },
-
-    // Student
-    { role: 'Student', href: "/dashboard/student", icon: GraduationCap, label: "Dashboard" },
-
-    // Parent
-    { role: 'Parent', href: "/dashboard/parent", icon: HeartHandshake, label: "Parent Portal" },
-    
-    // SuperAdmin
-    { role: 'SuperAdmin', href: "/dashboard/superadmin", icon: ShieldCheck, label: "Platform" },
-    { role: 'SuperAdmin', href: "/dashboard/superadmin/tenants", icon: Building, label: "Tenants" },
-];
-
-
-export function DashboardSidebar() {
+export function DashboardSidebar({ navItems }: { navItems: typeof navConfig }) {
   const pathname = usePathname()
   const router = useRouter()
   const auth = useAuth()
@@ -122,9 +74,6 @@ export function DashboardSidebar() {
 
   const activeRole = userProfile?.activeRole;
   
-  // Filter nav links based on the user's active role.
-  const visibleNavLinks = navConfig.filter(link => link.role === activeRole);
-
   const userName = user?.displayName || user?.email?.split('@')[0] || "User";
   const userEmail = user?.email || "";
   const userFallback = userName.charAt(0).toUpperCase();
@@ -141,7 +90,7 @@ export function DashboardSidebar() {
       )
     }
 
-    return visibleNavLinks.map((item) => (
+    return navItems.map((item) => (
       <SidebarMenuItem key={item.label}>
         <Link href={item.href}>
           <SidebarMenuButton
@@ -228,10 +177,12 @@ export function DashboardSidebar() {
                     </DropdownMenuPortal>
                   </DropdownMenuSub>
                 )}
-                <DropdownMenuItem>
-                  <Users className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
+                <Link href="/dashboard/profile">
+                  <DropdownMenuItem>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>My Profile</span>
+                  </DropdownMenuItem>
+                </Link>
                 <DropdownMenuItem>
                   <Bell className="mr-2 h-4 w-4" />
                   <span>Notifications</span>

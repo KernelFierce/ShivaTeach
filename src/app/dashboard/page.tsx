@@ -107,14 +107,13 @@ export default function DashboardPage() {
   const { data: leads, isLoading: leadsLoading, error: leadsError } = useCollection<Lead>(leadsCollectionRef);
   const { data: sessions, isLoading: sessionsLoading, error: sessionsError } = useCollection<Session>(sessionsQueryRef);
   const { data: courses, isLoading: coursesLoading, error: coursesError } = useCollection<Course>(coursesCollectionRef);
-  const { data: allUsers, isLoading: allUsersLoading, error: allUsersError } = useCollection<TenantUser>(usersCollectionRef);
 
   const totalStudents = users ? users.filter(u => u.roles.includes('Student')).length : 0;
   const activeStudents = users ? users.filter(u => u.roles.includes('Student') && u.status === 'Active').length : 0;
   const totalLeads = leads ? leads.length : 0;
 
-  const isLoading = usersLoading || leadsLoading || sessionsLoading || coursesLoading || allUsersLoading;
-  const isError = usersError || leadsError || sessionsError || coursesError || allUsersError;
+  const isLoading = usersLoading || leadsLoading || sessionsLoading || coursesLoading;
+  const isError = usersError || leadsError || sessionsError || coursesError;
 
   const handleSummarize = () => {
     if (!textToSummarize) return;
@@ -131,7 +130,7 @@ export default function DashboardPage() {
   }
 
   const getUserName = (userId: string) => {
-    return allUsers?.find(u => u.id === userId)?.name || '...';
+    return users?.find(u => u.id === userId)?.name || '...';
   }
 
   const getCourseName = (courseId: string) => {
